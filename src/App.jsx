@@ -1,10 +1,9 @@
 import { useState, useMemo } from "react";
 
-const P = {
+const DEFAULTS = {
   homePrice: 800000,
-  downPayment: 160000,
-  closingCost: 24000,
-  mortgage: 640000,
+  downPct: 0.20,
+  closingPct: 0.03,
   mortgageRate: 0.065,
   annualCostsY1: 20000,
   taxBenefitY1: 6000,
@@ -15,14 +14,22 @@ const P = {
   sellingCostPct: 0.06,
 };
 
+function derive(p) {
+  const downPayment = p.homePrice * p.downPct;
+  const closingCost = p.homePrice * p.closingPct;
+  const mortgage = p.homePrice - downPayment;
+  return { ...p, downPayment, closingCost, mortgage };
+}
+
 function fmt(n) { return "$" + Math.round(n).toLocaleString("en-US"); }
+function pct(n) { return (n * 100).toFixed(1) + "%"; }
 
 function monthlyPmt(principal, rate, months) {
   const r = rate / 12;
   return principal * (r * Math.pow(1 + r, months)) / (Math.pow(1 + r, months) - 1);
 }
 
-function simulate(holdYears, startRent) {
+function simulate(P, holdYears, startRent) {
   const mp = monthlyPmt(P.mortgage, P.mortgageRate, 360);
   const annualMtg = mp * 12;
   let balance = P.mortgage;
@@ -32,9 +39,7 @@ function simulate(holdYears, startRent) {
     const costs = P.annualCostsY1 * Math.pow(1 + P.costGrowth, y - 1);
     const buyerOut = annualMtg + costs - P.taxBenefitY1;
     const renterOut = startRent * 12 * Math.pow(1 + P.rentGrowth, y - 1);
-
     renterInv = renterInv * (1 + P.investReturn) + (buyerOut - renterOut);
-
     for (let m = 0; m < 12; m++) {
       const mi = balance * (P.mortgageRate / 12);
       balance -= (mp - mi);
@@ -46,17 +51,17 @@ function simulate(holdYears, startRent) {
   return { buyerNW, renterNW: renterInv, homeVal: hv, balance: Math.max(0, balance) };
 }
 
-function findBE(holdYears) {
+function findBE(P, holdYears) {
   let lo = 0, hi = 15000;
   for (let i = 0; i < 60; i++) {
     const mid = (lo + hi) / 2;
-    const { buyerNW, renterNW } = simulate(holdYears, mid);
+    const { buyerNW, renterNW } = simulate(P, holdYears, mid);
     if (renterNW > buyerNW) lo = mid; else hi = mid;
   }
   return (lo + hi) / 2;
 }
 
-function findBEnoInfl(holdYears) {
+function findBEnoInfl(P, holdYears) {
   const mp = monthlyPmt(P.mortgage, P.mortgageRate, 360);
   const annualMtg = mp * 12;
   const buyerOut = annualMtg + P.annualCostsY1 - P.taxBenefitY1;
@@ -80,16 +85,40 @@ function findBEnoInfl(holdYears) {
   return (lo + hi) / 2;
 }
 
+const sliderDefs = [
+  { key: "homePrice", label: "집값", min: 400000, max: 1500000, step: 10000, format: fmt },
+  { key: "downPct", label: "다운페이먼트", min: 0.05, max: 0.40, step: 0.01, format: pct },
+  { key: "mortgageRate", label: "모기지 금리", min: 0.03, max: 0.09, step: 0.001, format: pct },
+  { key: "annualCostsY1", label: "유지비 (1년차)", min: 8000, max: 40000, step: 1000, format: fmt },
+  { key: "taxBenefitY1", label: "세제 혜택", min: 0, max: 15000, step: 500, format: fmt },
+  { key: "homeAppreciation", label: "집값 상승률", min: 0.01, max: 0.08, step: 0.005, format: pct },
+  { key: "investReturn", label: "투자 수익률", min: 0.04, max: 0.12, step: 0.005, format: pct },
+  { key: "costGrowth", label: "유지비 상승률", min: 0.01, max: 0.06, step: 0.005, format: pct },
+  { key: "rentGrowth", label: "렌트 상승률", min: 0.01, max: 0.06, step: 0.005, format: pct },
+  { key: "sellingCostPct", label: "매도 수수료", min: 0.02, max: 0.08, step: 0.005, format: pct },
+];
+
+const sliderTrack = {
+  WebkitAppearance: "none", appearance: "none", width: "100%", height: 4, borderRadius: 2,
+  background: "#1e2430", outline: "none", cursor: "pointer",
+};
+
 const hdr = { fontSize: 10, color: "#4b5363", padding: "6px 0", borderBottom: "1px solid #1e2430" };
 const cell = { fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "7px 0", borderBottom: "1px solid #1a1f26", color: "#9ca3b0" };
 
 export default function App() {
+  const [params, setParams] = useState(DEFAULTS);
   const [hy, setHy] = useState(7);
+  const [showSliders, setShowSliders] = useState(false);
   const yrs = [3, 5, 7, 10, 15, 20];
 
-  const allBE = useMemo(() => yrs.map(y => ({ y, r: findBE(y), rni: findBEnoInfl(y) })), []);
-  const be = useMemo(() => findBE(hy), [hy]);
-  const beNI = useMemo(() => findBEnoInfl(hy), [hy]);
+  const P = useMemo(() => derive(params), [params]);
+
+  const setP = (key, val) => setParams(prev => ({ ...prev, [key]: val }));
+
+  const allBE = useMemo(() => yrs.map(y => ({ y, r: findBE(P, y), rni: findBEnoInfl(P, y) })), [P]);
+  const be = useMemo(() => findBE(P, hy), [P, hy]);
+  const beNI = useMemo(() => findBEnoInfl(P, hy), [P, hy]);
 
   const mp = monthlyPmt(P.mortgage, P.mortgageRate, 360);
   const annualMtg = mp * 12;
@@ -101,46 +130,93 @@ export default function App() {
       const costs = P.annualCostsY1 * Math.pow(1 + P.costGrowth, y - 1);
       const bOut = annualMtg + costs - P.taxBenefitY1;
       const rOut = be * 12 * Math.pow(1 + P.rentGrowth, y - 1);
-      let yInt = 0;
-      for (let m = 0; m < 12; m++) { const mi = bal * (P.mortgageRate / 12); yInt += mi; bal -= (mp - mi); }
+      for (let m = 0; m < 12; m++) { const mi = bal * (P.mortgageRate / 12); bal -= (mp - mi); }
       d.push({ year: y, bOut: Math.round(bOut), rOut: Math.round(rOut), mRent: Math.round(be * Math.pow(1 + P.rentGrowth, y - 1)), costs: Math.round(costs) });
     }
     return d;
-  }, [hy, be]);
+  }, [P, hy, be, annualMtg, mp]);
 
   const samples = [2500, 3000, 3500, 4000, 4500, 5000];
   const comp = useMemo(() => samples.map(r => {
-    const { buyerNW, renterNW } = simulate(hy, r);
+    const { buyerNW, renterNW } = simulate(P, hy, r);
     return { rent: r, bNW: buyerNW, rNW: renterNW };
-  }), [hy]);
+  }), [P, hy]);
+
+  const isDefault = JSON.stringify(params) === JSON.stringify(DEFAULTS);
 
   return (
     <div style={{ background: "#0b0e13", color: "#c9d1d9", minHeight: "100vh", fontFamily: "'DM Sans', sans-serif", padding: "20px 12px" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+      <style>{`
+        input[type="range"]::-webkit-slider-thumb {
+          -webkit-appearance: none; appearance: none;
+          width: 14px; height: 14px; border-radius: 50%;
+          background: #4a9eff; cursor: pointer; border: none;
+        }
+        input[type="range"]::-moz-range-thumb {
+          width: 14px; height: 14px; border-radius: 50%;
+          background: #4a9eff; cursor: pointer; border: none;
+        }
+      `}</style>
       <div style={{ maxWidth: 680, margin: "0 auto" }}>
 
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: "#e6edf3" }}>Buy vs Rent 손익분기 계산기</h1>
-          <p style={{ color: "#4b5363", fontSize: 12, marginTop: 6 }}>Ridgewood, NJ · $800K · 인플레이션 & 매도수수료 반영</p>
+          <p style={{ color: "#4b5363", fontSize: 12, marginTop: 6 }}>Ridgewood, NJ · {fmt(P.homePrice)} · 인플레이션 & 매도수수료 반영</p>
         </div>
 
-        {/* ASSUMPTIONS */}
-        <div style={{ background: "#111318", border: "1px solid #1e2430", borderRadius: 10, padding: "16px 18px", marginBottom: 20, fontSize: 12, color: "#6b7280", lineHeight: 1.9 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "#4a9eff", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 8 }}>전제 조건</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2px 24px" }}>
-            <span>집값: <b style={{ color: "#c9d1d9" }}>$800,000</b></span>
-            <span>모기지: <b style={{ color: "#c9d1d9" }}>$640K @ 6.5%</b></span>
-            <span>초기 투입: <b style={{ color: "#c9d1d9" }}>$184,000</b></span>
-            <span>유지비(1년차): <b style={{ color: "#c9d1d9" }}>$20,000/yr</b></span>
-            <span>세제 혜택: <b style={{ color: "#c9d1d9" }}>$6,000/yr</b></span>
-            <span>집값 상승: <b style={{ color: "#c9d1d9" }}>4%/yr</b></span>
-            <span>투자 수익: <b style={{ color: "#c9d1d9" }}>7%/yr</b></span>
-            <span>인플레이션: <b style={{ color: "#e9a23b" }}>3%/yr</b></span>
-            <span>유지비 상승: <b style={{ color: "#e9a23b" }}>3.5%/yr</b> <span style={{fontSize:10}}>(재산세 연동)</span></span>
-            <span>렌트 상승: <b style={{ color: "#e9a23b" }}>3%/yr</b></span>
-            <span>매도 수수료: <b style={{ color: "#c9d1d9" }}>6%</b></span>
-            <span>원금 상환: <b style={{ color: "#4ade80" }}>비용 아님</b></span>
+        {/* ASSUMPTIONS + SLIDERS */}
+        <div style={{ background: "#111318", border: "1px solid #1e2430", borderRadius: 10, padding: "16px 18px", marginBottom: 20 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: showSliders ? 14 : 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#4a9eff", textTransform: "uppercase", letterSpacing: 1.2 }}>전제 조건</div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              {!isDefault && (
+                <button onClick={() => setParams(DEFAULTS)} style={{
+                  background: "none", border: "1px solid #333", borderRadius: 5, padding: "3px 8px",
+                  color: "#6b7280", fontSize: 11, cursor: "pointer",
+                }}>초기화</button>
+              )}
+              <button onClick={() => setShowSliders(!showSliders)} style={{
+                background: showSliders ? "#1d4ed8" : "#151920", border: "none", borderRadius: 5,
+                padding: "4px 10px", color: showSliders ? "#fff" : "#6b7280", fontSize: 11,
+                cursor: "pointer", fontWeight: 500,
+              }}>{showSliders ? "접기" : "조절하기"}</button>
+            </div>
           </div>
+
+          {showSliders ? (
+            <div style={{ display: "grid", gap: 14 }}>
+              {sliderDefs.map(({ key, label, min, max, step, format }) => (
+                <div key={key}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                    <span style={{ fontSize: 12, color: "#6b7280" }}>{label}</span>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: params[key] !== DEFAULTS[key] ? "#4a9eff" : "#9ca3b0", fontWeight: 600 }}>
+                      {format(params[key])}
+                    </span>
+                  </div>
+                  <input type="range" min={min} max={max} step={step} value={params[key]}
+                    onChange={e => setP(key, parseFloat(e.target.value))} style={sliderTrack} />
+                </div>
+              ))}
+              <div style={{ fontSize: 11, color: "#4b5363", paddingTop: 4, borderTop: "1px solid #1e2430" }}>
+                다운페이먼트: {fmt(P.downPayment)} · 클로징: {fmt(P.closingCost)} · 모기지: {fmt(P.mortgage)} · 초기 투입: {fmt(P.downPayment + P.closingCost)}
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2px 24px", fontSize: 12, color: "#6b7280", lineHeight: 1.9 }}>
+              <span>집값: <b style={{ color: "#c9d1d9" }}>{fmt(P.homePrice)}</b></span>
+              <span>모기지: <b style={{ color: "#c9d1d9" }}>{fmt(P.mortgage)} @ {pct(P.mortgageRate)}</b></span>
+              <span>초기 투입: <b style={{ color: "#c9d1d9" }}>{fmt(P.downPayment + P.closingCost)}</b></span>
+              <span>유지비(1년차): <b style={{ color: "#c9d1d9" }}>{fmt(P.annualCostsY1)}/yr</b></span>
+              <span>세제 혜택: <b style={{ color: "#c9d1d9" }}>{fmt(P.taxBenefitY1)}/yr</b></span>
+              <span>집값 상승: <b style={{ color: "#c9d1d9" }}>{pct(P.homeAppreciation)}/yr</b></span>
+              <span>투자 수익: <b style={{ color: "#c9d1d9" }}>{pct(P.investReturn)}/yr</b></span>
+              <span>유지비 상승: <b style={{ color: "#e9a23b" }}>{pct(P.costGrowth)}/yr</b></span>
+              <span>렌트 상승: <b style={{ color: "#e9a23b" }}>{pct(P.rentGrowth)}/yr</b></span>
+              <span>매도 수수료: <b style={{ color: "#c9d1d9" }}>{pct(P.sellingCostPct)}</b></span>
+              <span>원금 상환: <b style={{ color: "#4ade80" }}>비용 아님</b></span>
+            </div>
+          )}
         </div>
 
         {/* HOLDING PERIOD */}
@@ -166,7 +242,7 @@ export default function App() {
             {fmt(Math.round(be))}
           </div>
           <div style={{ fontSize: 12, color: "#6b7280", marginTop: 8 }}>
-            이후 연 3%↑ → {hy}년차: {fmt(Math.round(be * Math.pow(1.03, hy - 1)))}/mo
+            이후 연 {pct(P.rentGrowth)}↑ → {hy}년차: {fmt(Math.round(be * Math.pow(1 + P.rentGrowth, hy - 1)))}/mo
           </div>
           <div style={{ fontSize: 13, color: "#8b949e", marginTop: 12, lineHeight: 1.7 }}>
             1년차에 이보다 <span style={{ color: "#4ade80", fontWeight: 600 }}>싸게</span> 렌트 가능 → 렌트 유리
@@ -233,7 +309,7 @@ export default function App() {
           </div>
           <div style={{ fontSize: 11, color: "#4b5363", marginTop: 10, lineHeight: 1.6 }}>
             모기지 P+I ({fmt(Math.round(annualMtg))}/yr)는 고정이지만 유지비는 매년 ↑<br />
-            렌트도 매년 3% ↑ → 후반부에 매수 지출과 렌트 지출이 역전
+            렌트도 매년 {pct(P.rentGrowth)} ↑ → 후반부에 매수 지출과 렌트 지출이 역전
           </div>
         </div>
 
@@ -259,15 +335,15 @@ export default function App() {
               );
             })}
           </div>
-          <div style={{ fontSize: 11, color: "#4b5363", marginTop: 10 }}>렌트는 매년 3%↑ 가정 · 매수 순자산 = 집 매도(−6%) 후 equity</div>
+          <div style={{ fontSize: 11, color: "#4b5363", marginTop: 10 }}>렌트는 매년 {pct(P.rentGrowth)}↑ 가정 · 매수 순자산 = 집 매도(−{pct(P.sellingCostPct)}) 후 equity</div>
         </div>
 
         {/* METHOD */}
         <div style={{ background: "#111318", border: "1px solid #1e2430", borderRadius: 10, padding: "16px 18px", fontSize: 12, color: "#4b5363", lineHeight: 1.8 }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: "#4a9eff", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 8 }}>계산 방법</div>
-          <p style={{ margin: "0 0 6px 0" }}>매년 시뮬레이션: 매수자 지출(모기지 고정 + 유지비↑3.5% − 세제혜택)과 렌트 지출(렌트↑3%)의 차이를 7%로 투자 누적.</p>
-          <p style={{ margin: "0 0 6px 0" }}><b style={{ color: "#9ca3b0" }}>매수 순자산</b> = 집값×1.04ᴺ×0.94 − 잔여모기지</p>
-          <p style={{ margin: "0 0 6px 0" }}><b style={{ color: "#9ca3b0" }}>렌트 순자산</b> = $184K×1.07ᴺ + 매년 절약분 투자 누적</p>
+          <p style={{ margin: "0 0 6px 0" }}>매년 시뮬레이션: 매수자 지출(모기지 고정 + 유지비↑{pct(P.costGrowth)} − 세제혜택)과 렌트 지출(렌트↑{pct(P.rentGrowth)})의 차이를 {pct(P.investReturn)}로 투자 누적.</p>
+          <p style={{ margin: "0 0 6px 0" }}><b style={{ color: "#9ca3b0" }}>매수 순자산</b> = 집값×(1+{pct(P.homeAppreciation)})ᴺ×{(1 - P.sellingCostPct).toFixed(2)} − 잔여모기지</p>
+          <p style={{ margin: "0 0 6px 0" }}><b style={{ color: "#9ca3b0" }}>렌트 순자산</b> = {fmt(P.downPayment + P.closingCost)}×(1+{pct(P.investReturn)})ᴺ + 매년 절약분 투자 누적</p>
           <p style={{ margin: 0 }}>양쪽 순자산이 같아지는 1년차 렌트가 손익분기점입니다.</p>
         </div>
       </div>
