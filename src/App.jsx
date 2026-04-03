@@ -217,6 +217,21 @@ export default function App() {
               <span>원금 상환: <b style={{ color: "#4ade80" }}>비용 아님</b></span>
             </div>
           )}
+
+          {/* FIXED ASSUMPTIONS */}
+          <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid #1e2430" }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: "#555d6b", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>고정 가정</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1px 24px", fontSize: 11, color: "#4b5363", lineHeight: 1.9 }}>
+              <span>모기지 기간: <b style={{ color: "#6b7280" }}>30년 고정</b></span>
+              <span>세금 신고: <b style={{ color: "#6b7280" }}>MFJ (부부 합산)</b></span>
+              <span>연소득: <b style={{ color: "#6b7280" }}>$300,000</b></span>
+              <span>한계 세율: <b style={{ color: "#6b7280" }}>24% (연방)</b></span>
+              <span>표준 공제: <b style={{ color: "#6b7280" }}>$30,000</b></span>
+              <span>SALT cap: <b style={{ color: "#6b7280" }}>$10,000</b></span>
+              <span>유지비 구성: <b style={{ color: "#6b7280" }}>재산세 2.89% + 보험 + 수선</b></span>
+              <span>NJ 주세: <b style={{ color: "#6b7280" }}>모기지이자 공제 불가</b></span>
+            </div>
+          </div>
         </div>
 
         {/* HOLDING PERIOD */}
