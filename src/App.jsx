@@ -283,32 +283,101 @@ export default function App() {
           </div>
         </div>
 
-        {/* ALL YEARS TABLE */}
-        <div style={{ background: "#111318", border: "1px solid #1e2430", borderRadius: 10, padding: "16px 18px", marginBottom: 20 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "#4a9eff", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 12 }}>
-            보유 기간별 손익분기 렌트 비교
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "50px 1fr 80px 80px", gap: 0 }}>
-            <div style={hdr}>기간</div><div style={hdr}></div>
-            <div style={{ ...hdr, textAlign: "right" }}>인플레 ✕</div>
-            <div style={{ ...hdr, textAlign: "right" }}>인플레 ✓</div>
-            {allBE.map(({ y, r, rni }) => {
-              const maxR = Math.max(...allBE.map(a => a.r));
-              const sel = y === hy;
-              return (
-                <div key={y} style={{ display: "contents", cursor: "pointer" }} onClick={() => setHy(y)}>
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, padding: "8px 0", borderBottom: "1px solid #1a1f26", fontWeight: sel ? 700 : 400, color: sel ? "#4a9eff" : "#6b7280" }}>{y}년</div>
-                  <div style={{ padding: "8px 6px", borderBottom: "1px solid #1a1f26", display: "flex", alignItems: "center" }}>
-                    <div style={{ height: 14, borderRadius: 3, width: `${(r / maxR) * 100}%`, background: sel ? "linear-gradient(90deg, #1d4ed8, #3b82f6)" : "#1e2430", transition: "width 0.3s" }} />
-                  </div>
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, padding: "8px 0", borderBottom: "1px solid #1a1f26", textAlign: "right", color: "#555d6b" }}>{fmt(Math.round(rni))}</div>
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, padding: "8px 0", borderBottom: "1px solid #1a1f26", textAlign: "right", fontWeight: 600, color: sel ? "#4ade80" : "#8b949e" }}>{fmt(Math.round(r))}</div>
-                </div>
-              );
-            })}
-          </div>
-          <div style={{ fontSize: 11, color: "#4b5363", marginTop: 10 }}>인플레이션 반영 시 손익분기 렌트 ↓ = 매수에 유리</div>
-        </div>
+        {/* ALL YEARS CHART */}
+        {(() => {
+          const chartYrs = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 18, 20];
+          const chartData = chartYrs.map(y => ({ y, r: findBE(P, y), rni: findBEnoInfl(P, y) }));
+          const allVals = chartData.flatMap(d => [d.r, d.rni]);
+          const minV = Math.floor(Math.min(...allVals) / 500) * 500;
+          const maxV = Math.ceil(Math.max(...allVals) / 500) * 500;
+          const range = maxV - minV || 1;
+
+          const W = 600, H = 260, pad = { t: 20, r: 20, b: 36, l: 56 };
+          const cw = W - pad.l - pad.r, ch = H - pad.t - pad.b;
+          const xOf = (yr) => pad.l + ((yr - 1) / 19) * cw;
+          const yOf = (v) => pad.t + (1 - (v - minV) / range) * ch;
+
+          const makePath = (key) => chartData.map((d, i) =>
+            `${i === 0 ? "M" : "L"}${xOf(d.y).toFixed(1)},${yOf(d[key]).toFixed(1)}`
+          ).join(" ");
+
+          const gridLines = [];
+          const step = range <= 3000 ? 500 : 1000;
+          for (let v = minV; v <= maxV; v += step) gridLines.push(v);
+
+          const selData = chartData.find(d => d.y === hy) || allBE.find(d => d.y === hy);
+
+          return (
+            <div style={{ background: "#111318", border: "1px solid #1e2430", borderRadius: 10, padding: "16px 18px", marginBottom: 20 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#4a9eff", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 12 }}>
+                보유 기간별 손익분기 렌트
+              </div>
+              <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", overflow: "visible" }}>
+                {/* grid */}
+                {gridLines.map(v => (
+                  <g key={v}>
+                    <line x1={pad.l} x2={W - pad.r} y1={yOf(v)} y2={yOf(v)} stroke="#1e2430" strokeWidth="1" />
+                    <text x={pad.l - 6} y={yOf(v) + 4} textAnchor="end" fill="#4b5363" fontSize="10" fontFamily="'JetBrains Mono', monospace">
+                      {fmt(v)}
+                    </text>
+                  </g>
+                ))}
+                {/* x labels */}
+                {[1, 3, 5, 7, 10, 15, 20].map(yr => (
+                  <text key={yr} x={xOf(yr)} y={H - 6} textAnchor="middle" fill="#4b5363" fontSize="10" fontFamily="'JetBrains Mono', monospace">
+                    {yr}년
+                  </text>
+                ))}
+                {/* lines */}
+                <path d={makePath("rni")} fill="none" stroke="#555d6b" strokeWidth="1.5" strokeDasharray="6,4" />
+                <path d={makePath("r")} fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                {/* area fill */}
+                <path d={`${makePath("r")} L${xOf(chartData[chartData.length-1].y)},${yOf(minV)} L${xOf(1)},${yOf(minV)} Z`} fill="url(#areaGrad)" />
+                <defs>
+                  <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.15" />
+                    <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+                {/* data points */}
+                {chartData.map(d => {
+                  const sel = d.y === hy;
+                  return (
+                    <g key={d.y} onClick={() => setHy(d.y)} style={{ cursor: "pointer" }}>
+                      <circle cx={xOf(d.y)} cy={yOf(d.rni)} r={sel ? 4 : 2.5} fill={sel ? "#555d6b" : "#333"} stroke="#555d6b" strokeWidth="1" />
+                      <circle cx={xOf(d.y)} cy={yOf(d.r)} r={sel ? 5 : 3} fill={sel ? "#3b82f6" : "#1d4ed8"} stroke={sel ? "#fff" : "none"} strokeWidth="1.5" />
+                      {/* invisible larger hit area */}
+                      <circle cx={xOf(d.y)} cy={yOf(d.r)} r="12" fill="transparent" />
+                    </g>
+                  );
+                })}
+                {/* selected indicator */}
+                {selData && (
+                  <g>
+                    <line x1={xOf(hy)} x2={xOf(hy)} y1={pad.t} y2={H - pad.b} stroke="#3b82f6" strokeWidth="1" strokeDasharray="3,3" opacity="0.5" />
+                    <rect x={xOf(hy) - 44} y={yOf(selData.r) - 28} width="88" height="22" rx="4" fill="#0f1a2e" stroke="#1d4ed8" strokeWidth="1" />
+                    <text x={xOf(hy)} y={yOf(selData.r) - 13} textAnchor="middle" fill="#4ade80" fontSize="11" fontWeight="700" fontFamily="'JetBrains Mono', monospace">
+                      {fmt(Math.round(selData.r))}
+                    </text>
+                  </g>
+                )}
+              </svg>
+              {/* legend */}
+              <div style={{ display: "flex", gap: 20, marginTop: 8, fontSize: 11, color: "#6b7280" }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <span style={{ width: 16, height: 3, background: "#3b82f6", borderRadius: 2, display: "inline-block" }} />
+                  인플레 반영
+                </span>
+                <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <span style={{ width: 16, height: 0, borderTop: "2px dashed #555d6b", display: "inline-block" }} />
+                  인플레 미반영
+                </span>
+                <span style={{ marginLeft: "auto", color: "#4b5363" }}>점 클릭 → 보유 기간 선택</span>
+              </div>
+              <div style={{ fontSize: 11, color: "#4b5363", marginTop: 6 }}>보유 기간이 길수록 손익분기 렌트 ↓ = 매수가 유리해짐</div>
+            </div>
+          );
+        })()}
 
         {/* CASH FLOW YEAR BY YEAR */}
         <div style={{ background: "#111318", border: "1px solid #1e2430", borderRadius: 10, padding: "16px 18px", marginBottom: 20 }}>
