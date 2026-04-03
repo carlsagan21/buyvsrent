@@ -5,8 +5,10 @@ const DEFAULTS = {
   downPct: 0.20,
   closingPct: 0.03,
   mortgageRate: 0.065,     // 2026.04 30yr fixed: 6.23%–6.51%
-  annualCostsY1: 37000,    // 재산세 $26K (2.89%) + 보험 $1.8K + 수선 $9K
-  taxBenefitY1: 6400,       // MFJ $300K: (항목공제 $56.8K − 표준공제 $30K) × 24%
+  propertyTaxRate: 0.0289, // Ridgewood NJ 2025 재산세율
+  insuranceY1: 1800,       // NJ 평균 주택 보험
+  maintenanceY1: 9000,     // 수선비 (~1% of home value)
+  taxBenefitY1: 6400,      // MFJ $300K: (항목공제 $56.8K − 표준공제 $30K) × 24%
   homeAppreciation: 0.05,  // Ridgewood NJ 10년 평균 ~5.0% (Zillow ZHVI)
   investReturn: 0.07,      // S&P 500 인플레 반영 실질수익률
   costGrowth: 0.035,
@@ -18,7 +20,8 @@ function derive(p) {
   const downPayment = p.homePrice * p.downPct;
   const closingCost = p.homePrice * p.closingPct;
   const mortgage = p.homePrice - downPayment;
-  return { ...p, downPayment, closingCost, mortgage };
+  const annualCostsY1 = p.homePrice * p.propertyTaxRate + p.insuranceY1 + p.maintenanceY1;
+  return { ...p, downPayment, closingCost, mortgage, annualCostsY1 };
 }
 
 function fmt(n) { return "$" + Math.round(n).toLocaleString("en-US"); }
@@ -89,7 +92,9 @@ const sliderDefs = [
   { key: "homePrice", label: "집값", min: 500000, max: 2000000, step: 10000, format: fmt },
   { key: "downPct", label: "다운페이먼트", min: 0.05, max: 0.40, step: 0.01, format: pct },
   { key: "mortgageRate", label: "모기지 금리", min: 0.03, max: 0.09, step: 0.001, format: pct },
-  { key: "annualCostsY1", label: "유지비 (1년차)", min: 10000, max: 60000, step: 1000, format: fmt },
+  { key: "propertyTaxRate", label: "재산세율", min: 0.01, max: 0.04, step: 0.001, format: pct },
+  { key: "insuranceY1", label: "주택 보험 (연)", min: 500, max: 5000, step: 100, format: fmt },
+  { key: "maintenanceY1", label: "수선비 (연)", min: 2000, max: 20000, step: 500, format: fmt },
   { key: "taxBenefitY1", label: "세제 혜택", min: 0, max: 20000, step: 500, format: fmt },
   { key: "homeAppreciation", label: "집값 상승률", min: 0.01, max: 0.08, step: 0.005, format: pct },
   { key: "investReturn", label: "투자 수익률", min: 0.04, max: 0.12, step: 0.005, format: pct },
@@ -207,7 +212,9 @@ export default function App() {
               <span>집값: <b style={{ color: "#c9d1d9" }}>{fmt(P.homePrice)}</b></span>
               <span>모기지: <b style={{ color: "#c9d1d9" }}>{fmt(P.mortgage)} @ {pct(P.mortgageRate)}</b></span>
               <span>초기 투입: <b style={{ color: "#c9d1d9" }}>{fmt(P.downPayment + P.closingCost)}</b></span>
-              <span>유지비(1년차): <b style={{ color: "#c9d1d9" }}>{fmt(P.annualCostsY1)}/yr</b></span>
+              <span>재산세: <b style={{ color: "#c9d1d9" }}>{fmt(P.homePrice * P.propertyTaxRate)}/yr ({pct(P.propertyTaxRate)})</b></span>
+              <span>보험+수선: <b style={{ color: "#c9d1d9" }}>{fmt(P.insuranceY1 + P.maintenanceY1)}/yr</b></span>
+              <span>유지비 합계: <b style={{ color: "#c9d1d9" }}>{fmt(P.annualCostsY1)}/yr</b></span>
               <span>세제 혜택: <b style={{ color: "#c9d1d9" }}>{fmt(P.taxBenefitY1)}/yr</b></span>
               <span>집값 상승: <b style={{ color: "#c9d1d9" }}>{pct(P.homeAppreciation)}/yr</b></span>
               <span>투자 수익: <b style={{ color: "#c9d1d9" }}>{pct(P.investReturn)}/yr</b></span>
@@ -228,7 +235,7 @@ export default function App() {
               <span>한계 세율: <b style={{ color: "#6b7280" }}>24% (연방)</b></span>
               <span>표준 공제: <b style={{ color: "#6b7280" }}>$30,000</b></span>
               <span>SALT cap: <b style={{ color: "#6b7280" }}>$10,000</b></span>
-              <span>유지비 구성: <b style={{ color: "#6b7280" }}>재산세 2.89% + 보험 + 수선</b></span>
+              <span>재산세: <b style={{ color: "#6b7280" }}>집값 × 세율 (자동 연동)</b></span>
               <span>NJ 주세: <b style={{ color: "#6b7280" }}>모기지이자 공제 불가</b></span>
             </div>
           </div>
