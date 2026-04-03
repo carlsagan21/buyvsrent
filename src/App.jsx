@@ -1,17 +1,17 @@
 import { useState, useMemo } from "react";
 
 const DEFAULTS = {
-  homePrice: 800000,
+  homePrice: 900000,       // 2026 Ridgewood NJ median ~$900K–$1.5M
   downPct: 0.20,
   closingPct: 0.03,
-  mortgageRate: 0.065,
-  annualCostsY1: 20000,
-  taxBenefitY1: 6000,
-  homeAppreciation: 0.04,
-  investReturn: 0.07,
+  mortgageRate: 0.065,     // 2026.04 30yr fixed: 6.23%–6.51%
+  annualCostsY1: 37000,    // 재산세 $26K (2.89%) + 보험 $1.8K + 수선 $9K
+  taxBenefitY1: 9500,      // 연방 모기지이자공제: $46.8K × 93.75% × 22% ≈ $9.6K
+  homeAppreciation: 0.04,  // 장기평균 ~5%, 보수적 4%
+  investReturn: 0.07,      // S&P 500 인플레 반영 실질수익률
   costGrowth: 0.035,
   rentGrowth: 0.03,
-  sellingCostPct: 0.06,
+  sellingCostPct: 0.05,    // NAR 합의 이후 4%–6%, 5% 적용
 };
 
 function derive(p) {
@@ -86,11 +86,11 @@ function findBEnoInfl(P, holdYears) {
 }
 
 const sliderDefs = [
-  { key: "homePrice", label: "집값", min: 400000, max: 1500000, step: 10000, format: fmt },
+  { key: "homePrice", label: "집값", min: 500000, max: 2000000, step: 10000, format: fmt },
   { key: "downPct", label: "다운페이먼트", min: 0.05, max: 0.40, step: 0.01, format: pct },
   { key: "mortgageRate", label: "모기지 금리", min: 0.03, max: 0.09, step: 0.001, format: pct },
-  { key: "annualCostsY1", label: "유지비 (1년차)", min: 8000, max: 40000, step: 1000, format: fmt },
-  { key: "taxBenefitY1", label: "세제 혜택", min: 0, max: 15000, step: 500, format: fmt },
+  { key: "annualCostsY1", label: "유지비 (1년차)", min: 10000, max: 60000, step: 1000, format: fmt },
+  { key: "taxBenefitY1", label: "세제 혜택", min: 0, max: 20000, step: 500, format: fmt },
   { key: "homeAppreciation", label: "집값 상승률", min: 0.01, max: 0.08, step: 0.005, format: pct },
   { key: "investReturn", label: "투자 수익률", min: 0.04, max: 0.12, step: 0.005, format: pct },
   { key: "costGrowth", label: "유지비 상승률", min: 0.01, max: 0.06, step: 0.005, format: pct },
@@ -136,7 +136,7 @@ export default function App() {
     return d;
   }, [P, hy, be, annualMtg, mp]);
 
-  const samples = [2500, 3000, 3500, 4000, 4500, 5000];
+  const samples = [2500, 3000, 3500, 4000, 4500, 5000, 5500];
   const comp = useMemo(() => samples.map(r => {
     const { buyerNW, renterNW } = simulate(P, hy, r);
     return { rent: r, bNW: buyerNW, rNW: renterNW };
