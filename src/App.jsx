@@ -7,7 +7,7 @@ const DEFAULTS = {
   mortgageRate: 0.065,     // 2026.04 30yr fixed: 6.23%–6.51%
   annualCostsY1: 37000,    // 재산세 $26K (2.89%) + 보험 $1.8K + 수선 $9K
   taxBenefitY1: 6400,       // MFJ $300K: (항목공제 $56.8K − 표준공제 $30K) × 24%
-  homeAppreciation: 0.04,  // 장기평균 ~5%, 보수적 4%
+  homeAppreciation: 0.05,  // Ridgewood NJ 10년 평균 ~5.0% (Zillow ZHVI)
   investReturn: 0.07,      // S&P 500 인플레 반영 실질수익률
   costGrowth: 0.035,
   rentGrowth: 0.03,
