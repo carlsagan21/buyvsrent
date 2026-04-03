@@ -8,13 +8,23 @@ const DEFAULTS = {
   propertyTaxRate: 0.0289, // Ridgewood NJ 2025 재산세율
   insuranceY1: 1800,       // NJ 평균 주택 보험
   maintenanceY1: 9000,     // 수선비 (~1% of home value)
-  taxBenefitY1: 6400,      // MFJ $300K: (항목공제 $56.8K − 표준공제 $30K) × 24%
+  marginalTaxRate: 0.24,   // MFJ $300K 연방 한계세율
+  standardDeduction: 30000,// MFJ 표준공제
+  saltCap: 10000,          // SALT 공제 한도
   homeAppreciation: 0.05,  // Ridgewood NJ 10년 평균 ~5.0% (Zillow ZHVI)
-  investReturn: 0.07,      // S&P 500 인플레 반영 실질수익률
+  investReturn: 0.08,      // S&P 500 명목 CAGR ~9.5%, 배당세·보수적 마진 차감
   costGrowth: 0.035,
   rentGrowth: 0.03,
   sellingCostPct: 0.05,    // NAR 합의 이후 4%–6%, 5% 적용
 };
+
+// 매년 실제 이자 기반 세제혜택 계산
+function calcTaxBenefit(yearlyInterest, propertyTax, marginalTaxRate, standardDeduction, saltCap) {
+  const saltDeduction = Math.min(propertyTax, saltCap);
+  const itemized = yearlyInterest + saltDeduction;
+  const excess = Math.max(0, itemized - standardDeduction);
+  return excess * marginalTaxRate;
+}
 
 function derive(p) {
   const downPayment = p.homePrice * p.downPct;
@@ -39,14 +49,22 @@ function simulate(P, holdYears, startRent) {
   let renterInv = P.downPayment + P.closingCost;
 
   for (let y = 1; y <= holdYears; y++) {
-    const costs = P.annualCostsY1 * Math.pow(1 + P.costGrowth, y - 1);
-    const buyerOut = annualMtg + costs - P.taxBenefitY1;
-    const renterOut = startRent * 12 * Math.pow(1 + P.rentGrowth, y - 1);
-    renterInv = renterInv * (1 + P.investReturn) + (buyerOut - renterOut);
+    // 해당 연도 이자 계산 (세제혜택용)
+    let yearInterest = 0;
     for (let m = 0; m < 12; m++) {
       const mi = balance * (P.mortgageRate / 12);
+      yearInterest += mi;
       balance -= (mp - mi);
     }
+    const propertyTax = P.homePrice * P.propertyTaxRate * Math.pow(1 + P.costGrowth, y - 1);
+    const taxBenefit = calcTaxBenefit(yearInterest, propertyTax, P.marginalTaxRate, P.standardDeduction, P.saltCap);
+
+    const costs = P.annualCostsY1 * Math.pow(1 + P.costGrowth, y - 1);
+    const buyerOut = annualMtg + costs - taxBenefit;
+    const renterOut = startRent * 12 * Math.pow(1 + P.rentGrowth, y - 1);
+    // 투자계좌 음수 방지: 양수일 때만 수익률 적용
+    const investGain = renterInv > 0 ? renterInv * P.investReturn : 0;
+    renterInv = renterInv + investGain + (buyerOut - renterOut);
   }
 
   const hv = P.homePrice * Math.pow(1 + P.homeAppreciation, holdYears);
@@ -55,7 +73,7 @@ function simulate(P, holdYears, startRent) {
 }
 
 function findBE(P, holdYears) {
-  let lo = 0, hi = 15000;
+  let lo = 0, hi = Math.max(20000, P.homePrice / 48);
   for (let i = 0; i < 60; i++) {
     const mid = (lo + hi) / 2;
     const { buyerNW, renterNW } = simulate(P, holdYears, mid);
@@ -67,15 +85,20 @@ function findBE(P, holdYears) {
 function findBEnoInfl(P, holdYears) {
   const mp = monthlyPmt(P.mortgage, P.mortgageRate, 360);
   const annualMtg = mp * 12;
-  const buyerOut = annualMtg + P.annualCostsY1 - P.taxBenefitY1;
+  // 인플레 미반영: 1년차 이자 기준 고정 세제혜택
+  const year1Interest = P.mortgage * P.mortgageRate;
+  const year1PropTax = P.homePrice * P.propertyTaxRate;
+  const fixedTaxBenefit = calcTaxBenefit(year1Interest, year1PropTax, P.marginalTaxRate, P.standardDeduction, P.saltCap);
+  const buyerOut = annualMtg + P.annualCostsY1 - fixedTaxBenefit;
 
-  let lo = 0, hi = 15000;
+  let lo = 0, hi = Math.max(20000, P.homePrice / 48);
   for (let i = 0; i < 60; i++) {
     const mid = (lo + hi) / 2;
     let balance = P.mortgage;
     let renterInv = P.downPayment + P.closingCost;
     for (let y = 1; y <= holdYears; y++) {
-      renterInv = renterInv * (1 + P.investReturn) + (buyerOut - mid * 12);
+      const investGain = renterInv > 0 ? renterInv * P.investReturn : 0;
+      renterInv = renterInv + investGain + (buyerOut - mid * 12);
       for (let m = 0; m < 12; m++) {
         const mi = balance * (P.mortgageRate / 12);
         balance -= (mp - mi);
@@ -95,9 +118,8 @@ const sliderDefs = [
   { key: "propertyTaxRate", label: "재산세율", min: 0.01, max: 0.04, step: 0.001, format: pct },
   { key: "insuranceY1", label: "주택 보험 (연)", min: 500, max: 5000, step: 100, format: fmt },
   { key: "maintenanceY1", label: "수선비 (연)", min: 2000, max: 20000, step: 500, format: fmt },
-  { key: "taxBenefitY1", label: "세제 혜택", min: 0, max: 20000, step: 500, format: fmt },
   { key: "homeAppreciation", label: "집값 상승률", min: 0.01, max: 0.08, step: 0.005, format: pct },
-  { key: "investReturn", label: "투자 수익률", min: 0.04, max: 0.12, step: 0.005, format: pct },
+  { key: "investReturn", label: "투자 수익률 (명목)", min: 0.04, max: 0.12, step: 0.005, format: pct },
   { key: "costGrowth", label: "유지비 상승률", min: 0.01, max: 0.06, step: 0.005, format: pct },
   { key: "rentGrowth", label: "렌트 상승률", min: 0.01, max: 0.06, step: 0.005, format: pct },
   { key: "sellingCostPct", label: "매도 수수료", min: 0.02, max: 0.08, step: 0.005, format: pct },
@@ -132,10 +154,13 @@ export default function App() {
     const d = [];
     let bal = P.mortgage;
     for (let y = 1; y <= hy; y++) {
+      let yearInterest = 0;
+      for (let m = 0; m < 12; m++) { const mi = bal * (P.mortgageRate / 12); yearInterest += mi; bal -= (mp - mi); }
+      const propTax = P.homePrice * P.propertyTaxRate * Math.pow(1 + P.costGrowth, y - 1);
+      const taxBen = calcTaxBenefit(yearInterest, propTax, P.marginalTaxRate, P.standardDeduction, P.saltCap);
       const costs = P.annualCostsY1 * Math.pow(1 + P.costGrowth, y - 1);
-      const bOut = annualMtg + costs - P.taxBenefitY1;
+      const bOut = annualMtg + costs - taxBen;
       const rOut = be * 12 * Math.pow(1 + P.rentGrowth, y - 1);
-      for (let m = 0; m < 12; m++) { const mi = bal * (P.mortgageRate / 12); bal -= (mp - mi); }
       d.push({ year: y, bOut: Math.round(bOut), rOut: Math.round(rOut), mRent: Math.round(be * Math.pow(1 + P.rentGrowth, y - 1)), costs: Math.round(costs) });
     }
     return d;
@@ -215,7 +240,7 @@ export default function App() {
               <span>재산세: <b style={{ color: "#c9d1d9" }}>{fmt(P.homePrice * P.propertyTaxRate)}/yr ({pct(P.propertyTaxRate)})</b></span>
               <span>보험+수선: <b style={{ color: "#c9d1d9" }}>{fmt(P.insuranceY1 + P.maintenanceY1)}/yr</b></span>
               <span>유지비 합계: <b style={{ color: "#c9d1d9" }}>{fmt(P.annualCostsY1)}/yr</b></span>
-              <span>세제 혜택: <b style={{ color: "#c9d1d9" }}>{fmt(P.taxBenefitY1)}/yr</b></span>
+              <span>세제 혜택 (1년차): <b style={{ color: "#c9d1d9" }}>{fmt(calcTaxBenefit(P.mortgage * P.mortgageRate, P.homePrice * P.propertyTaxRate, P.marginalTaxRate, P.standardDeduction, P.saltCap))}/yr</b></span>
               <span>집값 상승: <b style={{ color: "#c9d1d9" }}>{pct(P.homeAppreciation)}/yr</b></span>
               <span>투자 수익: <b style={{ color: "#c9d1d9" }}>{pct(P.investReturn)}/yr</b></span>
               <span>유지비 상승: <b style={{ color: "#e9a23b" }}>{pct(P.costGrowth)}/yr</b></span>
@@ -232,9 +257,9 @@ export default function App() {
               <span>모기지 기간: <b style={{ color: "#6b7280" }}>30년 고정</b></span>
               <span>세금 신고: <b style={{ color: "#6b7280" }}>MFJ (부부 합산)</b></span>
               <span>연소득: <b style={{ color: "#6b7280" }}>$300,000</b></span>
-              <span>한계 세율: <b style={{ color: "#6b7280" }}>24% (연방)</b></span>
-              <span>표준 공제: <b style={{ color: "#6b7280" }}>$30,000</b></span>
-              <span>SALT cap: <b style={{ color: "#6b7280" }}>$10,000</b></span>
+              <span>한계 세율: <b style={{ color: "#6b7280" }}>{pct(P.marginalTaxRate)} (연방)</b></span>
+              <span>표준 공제: <b style={{ color: "#6b7280" }}>{fmt(P.standardDeduction)}</b></span>
+              <span>SALT cap: <b style={{ color: "#6b7280" }}>{fmt(P.saltCap)}</b></span>
               <span>재산세: <b style={{ color: "#6b7280" }}>집값 × 세율 (자동 연동)</b></span>
               <span>NJ 주세: <b style={{ color: "#6b7280" }}>모기지이자 공제 불가</b></span>
             </div>
