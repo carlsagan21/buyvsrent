@@ -1,4 +1,7 @@
 import { useMemo, useState } from "react";
+import Accordion from "@mui/material/Accordion";
+import AccordionDetails from "@mui/material/AccordionDetails";
+import AccordionSummary from "@mui/material/AccordionSummary";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
@@ -10,6 +13,7 @@ import Slider from "@mui/material/Slider";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import {
   DEFAULTS,
   REGIONS,
@@ -309,16 +313,19 @@ export default function App() {
         })()}
 
         {/* CASH FLOW (collapsible) */}
-        <Paper sx={{ borderRadius: 2.5, p: "16px 18px", mb: 2.5 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center" mb={showCashFlow ? 1.75 : 0}>
+        <Accordion
+          expanded={showCashFlow}
+          onChange={(_, expanded) => setShowCashFlow(expanded)}
+          elevation={2}
+          disableGutters
+          sx={{ borderRadius: 3, "&:before": { display: "none" }, mb: 3 }}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ px: 2.5, minHeight: 56 }}>
             <Typography variant="overline" sx={{ color: "primary.main", fontWeight: 600, letterSpacing: 1.2 }}>
               연도별 현금 흐름 (1년차 월세 {fmt(currentRent)} 기준)
             </Typography>
-            <Button variant={showCashFlow ? "contained" : "text"} onClick={() => setShowCashFlow(!showCashFlow)}
-              sx={{ color: showCashFlow ? "#fff" : "text.secondary", bgcolor: showCashFlow ? "primary.main" : "#151920" }}
-            >{showCashFlow ? "접기" : "자세히 보기"}</Button>
-          </Stack>
-          <Collapse in={showCashFlow}>
+          </AccordionSummary>
+          <AccordionDetails sx={{ px: 2.5, pb: 2.5, pt: 0 }}>
             <Box display="grid" gridTemplateColumns="30px 1.1fr 0.9fr 1.1fr 74px">
               <Box sx={hdr}>년</Box>
               <Box sx={{ ...hdr, textAlign: "right" }}>매수 연지출</Box>
@@ -343,25 +350,42 @@ export default function App() {
                 매수 연지출에는 은행에 내는 <strong>모기지 원금(순자산으로 100% 쌓임)</strong>이 포함되어 있습니다. 또한, 내 집 마련 시 매년 발생하는 <strong>부동산 가치 상승분(레버리지 효과)</strong>이 당장의 높은 월 지출액을 압도적으로 상쇄하기 때문입니다.
               </Box>
             </Typography>
-          </Collapse>
-        </Paper>
+          </AccordionDetails>
+        </Accordion>
 
         {/* ASSUMPTIONS (collapsible) */}
-        <Paper sx={{ borderRadius: 2.5, p: "16px 18px", mb: 2.5 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center" mb={showSliders ? 1.75 : 0}>
-            <Typography variant="overline" sx={{ color: "primary.main" }}>전제 조건</Typography>
-            <Stack direction="row" spacing={1} alignItems="center">
-              {!isDefault && (
-                <Button variant="outlined" onClick={() => setParams(baseParams)} color="inherit">초기화</Button>
-              )}
-              <Button variant={showSliders ? "contained" : "text"} onClick={() => setShowSliders(!showSliders)}
-                sx={{ color: showSliders ? "#fff" : "text.secondary", bgcolor: showSliders ? "primary.main" : "#151920" }}
-              >{showSliders ? "접기" : "조절하기"}</Button>
-            </Stack>
-          </Stack>
+        <Accordion
+          expanded={showSliders}
+          onChange={(_, expanded) => setShowSliders(expanded)}
+          elevation={2}
+          disableGutters
+          sx={{ borderRadius: 3, "&:before": { display: "none" }, mb: 3 }}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ px: 2.5, alignItems: "flex-start", py: 1 }}>
+            <Box sx={{ flexGrow: 1 }}>
+              <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Typography variant="overline" sx={{ color: "primary.main" }}>전제 조건</Typography>
+                {!isDefault && (
+                  <Button size="small" variant="outlined" onClick={(e) => { e.stopPropagation(); setParams(baseParams); }} color="inherit" sx={{ mr: 2 }}>초기화</Button>
+                )}
+              </Stack>
+              <Collapse in={!showSliders}>
+                <Box display="grid" gridTemplateColumns="1fr 1fr" gap="2px 24px" sx={{ typography: "caption", color: "text.secondary", lineHeight: 1.9, mt: 0.5 }}>
+                  <span>모기지: <Typography component="span" variant="caption" color="text.primary" fontWeight="bold">{fmt(P.mortgage)} @ {pct(P.mortgageRate)}</Typography></span>
+                  <span>초기 투입: <Typography component="span" variant="caption" color="text.primary" fontWeight="bold">{fmt(P.downPayment + P.closingCost)}</Typography></span>
+                  <span>유지비: <Typography component="span" variant="caption" color="text.primary" fontWeight="bold">{fmt(P.annualCostsY1)}/yr</Typography></span>
+                  <span>주 소득세: <Typography component="span" variant="caption" color="text.primary" fontWeight="bold">{fmt(P.stateIncomeTaxY1)}/yr</Typography></span>
+                  <span>투자 수익: <Typography component="span" variant="caption" color="text.primary" fontWeight="bold">{pct(P.investReturn)}/yr</Typography></span>
+                  <span>양도차익세율: <Typography component="span" variant="caption" color="text.primary" fontWeight="bold">{pct(P.capitalGainsTaxRate)}</Typography></span>
+                  <span>집값 상승: <Typography component="span" variant="caption" color="text.primary" fontWeight="bold">{pct(P.homeAppreciation)}/yr</Typography></span>
+                  <span>매도 수수료: <Typography component="span" variant="caption" color="text.primary" fontWeight="bold">{pct(P.sellingCostPct)}</Typography></span>
+                </Box>
+              </Collapse>
+            </Box>
+          </AccordionSummary>
 
-          <Collapse in={showSliders}>
-            <Stack spacing={1.75}>
+          <AccordionDetails sx={{ px: 2.5, pb: 2.5, pt: 0 }}>
+            <Stack spacing={2} mt={1}>
               {sliderDefs.map(({ key, label, min, max, step, format }) => (
                 <Box key={key}>
                   <Stack direction="row" justifyContent="space-between" mb={0.5}>
@@ -374,24 +398,10 @@ export default function App() {
                     onChange={(_, v) => setP(key, v as number)} />
                 </Box>
               ))}
-              <Typography variant="body2" sx={{ pt: 0.5, borderTop: "1px solid #1e2430", color: "#4b5363" }}>
+              <Typography variant="body2" color="text.disabled" sx={{ pt: 1, borderTop: "1px solid", borderColor: "divider" }}>
                 다운페이먼트: {fmt(P.downPayment)} · 클로징: {fmt(P.closingCost)} · 모기지: {fmt(P.mortgage)} · 초기 투입: {fmt(P.downPayment + P.closingCost)}
               </Typography>
             </Stack>
-          </Collapse>
-
-          <Collapse in={!showSliders}>
-            <Box display="grid" gridTemplateColumns="1fr 1fr" gap="2px 24px" sx={{ typography: "caption", color: "text.secondary", lineHeight: 1.9, mt: 1 }}>
-              <span>모기지: <Typography component="span" variant="caption" color="text.primary" fontWeight="bold">{fmt(P.mortgage)} @ {pct(P.mortgageRate)}</Typography></span>
-              <span>초기 투입: <Typography component="span" variant="caption" color="text.primary" fontWeight="bold">{fmt(P.downPayment + P.closingCost)}</Typography></span>
-              <span>유지비: <Typography component="span" variant="caption" color="text.primary" fontWeight="bold">{fmt(P.annualCostsY1)}/yr</Typography></span>
-              <span>주 소득세: <Typography component="span" variant="caption" color="text.primary" fontWeight="bold">{fmt(P.stateIncomeTaxY1)}/yr</Typography></span>
-              <span>투자 수익: <Typography component="span" variant="caption" color="text.primary" fontWeight="bold">{pct(P.investReturn)}/yr</Typography></span>
-              <span>양도차익세율: <Typography component="span" variant="caption" color="text.primary" fontWeight="bold">{pct(P.capitalGainsTaxRate)}</Typography></span>
-              <span>집값 상승: <Typography component="span" variant="caption" color="text.primary" fontWeight="bold">{pct(P.homeAppreciation)}/yr</Typography></span>
-              <span>매도 수수료: <Typography component="span" variant="caption" color="text.primary" fontWeight="bold">{pct(P.sellingCostPct)}</Typography></span>
-            </Box>
-          </Collapse>
 
           <Box sx={{ mt: 1.25, pt: 1, borderTop: "1px solid", borderColor: "divider" }}>
             <Typography variant="overline" sx={{ color: "text.secondary", display: "block", mb: 0.5 }}>고정 가정</Typography>
@@ -404,7 +414,8 @@ export default function App() {
               <span>양도차익 비과세: <b>{fmt(P.homeSaleGainExclusion)}</b></span>
             </Box>
           </Box>
-        </Paper>
+          </AccordionDetails>
+        </Accordion>
 
         {/* METHOD */}
         <Paper sx={{ borderRadius: 2.5, p: "16px 18px", fontSize: 12, color: "#4b5363", lineHeight: 1.8 }}>
