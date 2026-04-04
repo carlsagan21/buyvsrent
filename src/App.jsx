@@ -171,7 +171,6 @@ function findBEnoInfl(P, holdYears) {
 }
 
 const sliderDefs = [
-  { key: "homePrice", label: "집값", min: 500000, max: 2000000, step: 10000, format: fmt },
   { key: "downPct", label: "다운페이먼트", min: 0.20, max: 0.40, step: 0.01, format: pct },
   { key: "mortgageRate", label: "모기지 금리", min: 0.03, max: 0.09, step: 0.001, format: pct },
   { key: "propertyTaxRate", label: "재산세율", min: 0.01, max: 0.04, step: 0.001, format: pct },
@@ -197,7 +196,7 @@ const cell = { fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding:
 export default function App() {
   const [params, setParams] = useState(DEFAULTS);
   const [hy, setHy] = useState(7);
-  const [currentRent, setCurrentRent] = useState(3500);
+  const [currentRent, setCurrentRent] = useState(4000);
   const [showSliders, setShowSliders] = useState(false);
   const yrs = [3, 5, 7, 10, 15, 20];
 
@@ -289,7 +288,7 @@ export default function App() {
               <div style={{ fontSize: 11, fontWeight: 600, color: "#4a9eff", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>현재 월세</div>
               <div style={{ display: "flex", alignItems: "center", background: "#0b0e13", borderRadius: 8, border: "1px solid #1e2430", padding: "8px 12px" }}>
                 <span style={{ color: "#6b7280", fontSize: 18, fontWeight: 600, marginRight: 4 }}>$</span>
-                <input type="number" value={currentRent} onChange={e => setCurrentRent(Math.max(0, parseInt(e.target.value) || 0))}
+                <input type="number" value={currentRent === 0 ? "" : currentRent} onChange={e => setCurrentRent(e.target.value === "" ? 0 : parseInt(e.target.value) || 0)}
                   style={{ background: "none", border: "none", color: "#e6edf3", fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 700, width: "100%", outline: "none" }} />
                 <span style={{ color: "#4b5363", fontSize: 11, whiteSpace: "nowrap" }}>/mo</span>
               </div>
@@ -298,7 +297,7 @@ export default function App() {
               <div style={{ fontSize: 11, fontWeight: 600, color: "#4a9eff", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>매수 가격</div>
               <div style={{ display: "flex", alignItems: "center", background: "#0b0e13", borderRadius: 8, border: "1px solid #1e2430", padding: "8px 12px" }}>
                 <span style={{ color: "#6b7280", fontSize: 18, fontWeight: 600, marginRight: 4 }}>$</span>
-                <input type="number" value={params.homePrice} onChange={e => setP("homePrice", Math.max(100000, parseInt(e.target.value) || 0))}
+                <input type="number" value={params.homePrice === 0 ? "" : params.homePrice} onChange={e => setP("homePrice", e.target.value === "" ? 0 : parseInt(e.target.value) || 0)}
                   style={{ background: "none", border: "none", color: "#e6edf3", fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 700, width: "100%", outline: "none" }} />
               </div>
             </div>
