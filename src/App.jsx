@@ -1,185 +1,18 @@
 import { useState, useMemo } from "react";
-
-const DEFAULTS = {
-  homePrice: 700000,       // 2026 Ridgewood NJ median ~$900K–$1.5M
-  downPct: 0.20,
-  closingPct: 0.03,
-  mortgageRate: 0.065,     // 2026.04 30yr fixed: 6.23%–6.51%
-  propertyTaxRate: 0.0289, // Ridgewood NJ 2025 재산세율
-  insuranceY1: 1800,       // NJ 평균 주택 보험
-  maintenanceY1: 9000,     // 수선비 (~1% of home value)
-  marginalTaxRate: 0.24,   // MFJ $300K 연방 한계세율
-  stateIncomeTaxY1: 14000, // NJ 주 소득세 추정치 (MFJ $300K 가정)
-  standardDeduction: 32200,// 2026 MFJ 표준공제
-  saltCap: 40000,          // 2026 SALT 공제 한도 (phaseout 전)
-  mortgageInterestLimit: 750000,
-  homeAppreciation: 0.05,  // Ridgewood NJ 10년 평균 ~5.0% (Zillow ZHVI)
-  investReturn: 0.08,      // S&P 500 명목 CAGR ~9.5%, 배당세·보수적 마진 차감
-  costGrowth: 0.035,
-  rentGrowth: 0.03,
-  sellingCostPct: 0.05,    // NAR 합의 이후 4%–6%, 5% 적용
-  capitalGainsTaxRate: 0.188, // 장기자본이득세 15% + NIIT 3.8% 가정
-  homeSaleGainExclusion: 500000,
-};
-
-const REGIONS = [
-  { name: "Ridgewood (Bergen)", homePrice: 900000, propertyTaxRate: 0.0289, homeAppreciation: 0.05 },
-  { name: "Tenafly (Bergen)", homePrice: 1200000, propertyTaxRate: 0.0260, homeAppreciation: 0.05 },
-  { name: "Paramus (Bergen)", homePrice: 850000, propertyTaxRate: 0.0145, homeAppreciation: 0.045 },
-  { name: "Fort Lee (Bergen)", homePrice: 650000, propertyTaxRate: 0.0230, homeAppreciation: 0.045 },
-  { name: "Millburn (Essex)", homePrice: 1500000, propertyTaxRate: 0.0195, homeAppreciation: 0.045 },
-  { name: "Montclair (Essex)", homePrice: 1000000, propertyTaxRate: 0.0315, homeAppreciation: 0.05 },
-  { name: "Jersey City (Hudson)", homePrice: 850000, propertyTaxRate: 0.0165, homeAppreciation: 0.04 },
-  { name: "Princeton (Mercer)", homePrice: 950000, propertyTaxRate: 0.0245, homeAppreciation: 0.045 },
-];
-
-function calcTaxBenefit({
-  yearlyInterest,
-  avgBalance,
-  propertyTax,
-  stateIncomeTax,
-  mortgageInterestLimit,
-  marginalTaxRate,
-  standardDeduction,
-  saltCap,
-}) {
-  const deductibleInterestRatio = avgBalance > 0
-    ? Math.min(1, mortgageInterestLimit / avgBalance)
-    : 0;
-  const deductibleInterest = yearlyInterest * deductibleInterestRatio;
-  const saltDeduction = Math.min(propertyTax + stateIncomeTax, saltCap);
-  const itemized = deductibleInterest + saltDeduction;
-  const excess = Math.max(0, itemized - standardDeduction);
-  return excess * marginalTaxRate;
-}
-
-function derive(p) {
-  const downPayment = p.homePrice * p.downPct;
-  const closingCost = p.homePrice * p.closingPct;
-  const mortgage = p.homePrice - downPayment;
-  const annualCostsY1 = p.homePrice * p.propertyTaxRate + p.insuranceY1 + p.maintenanceY1;
-  return { ...p, downPayment, closingCost, mortgage, annualCostsY1 };
-}
+import {
+  DEFAULTS,
+  REGIONS,
+  amortizeYear,
+  calcTaxBenefit,
+  deriveParams,
+  findBE,
+  findBEnoInfl,
+  monthlyPmt,
+  simulate,
+} from "./calculator";
 
 function fmt(n) { return "$" + Math.round(n).toLocaleString("en-US"); }
 function pct(n) { return (n * 100).toFixed(1) + "%"; }
-
-function monthlyPmt(principal, rate, months) {
-  const r = rate / 12;
-  return principal * (r * Math.pow(1 + r, months)) / (Math.pow(1 + r, months) - 1);
-}
-
-function amortizeYear(balance, rate, monthlyPayment) {
-  let nextBalance = balance;
-  let yearInterest = 0;
-  let balanceSum = 0;
-
-  for (let m = 0; m < 12; m++) {
-    balanceSum += nextBalance;
-    const monthlyInterest = nextBalance * (rate / 12);
-    yearInterest += monthlyInterest;
-    nextBalance -= (monthlyPayment - monthlyInterest);
-  }
-
-  return { endBalance: nextBalance, yearInterest, yearPrincipal: balance - nextBalance, avgBalance: balanceSum / 12 };
-}
-
-function calcSaleOutcome(P, holdYears, homeVal, balance) {
-  const saleProceeds = homeVal * (1 - P.sellingCostPct);
-  const exclusion = holdYears >= 2 ? P.homeSaleGainExclusion : 0;
-  const taxableGain = Math.max(0, saleProceeds - P.homePrice - exclusion);
-  const capitalGainsTax = taxableGain * P.capitalGainsTaxRate;
-  const buyerNW = saleProceeds - capitalGainsTax - Math.max(0, balance);
-
-  return { saleProceeds, taxableGain, capitalGainsTax, buyerNW };
-}
-
-function simulate(P, holdYears, startRent) {
-  const mp = monthlyPmt(P.mortgage, P.mortgageRate, 360);
-  const annualMtg = mp * 12;
-  let balance = P.mortgage;
-  let renterInv = P.downPayment + P.closingCost;
-
-  for (let y = 1; y <= holdYears; y++) {
-    const yearMortgage = amortizeYear(balance, P.mortgageRate, mp);
-    balance = yearMortgage.endBalance;
-    const propertyTax = P.homePrice * P.propertyTaxRate * Math.pow(1 + P.costGrowth, y - 1);
-    const stateIncomeTax = P.stateIncomeTaxY1 * Math.pow(1 + P.costGrowth, y - 1);
-    const taxBenefit = calcTaxBenefit({
-      yearlyInterest: yearMortgage.yearInterest,
-      avgBalance: yearMortgage.avgBalance,
-      propertyTax,
-      stateIncomeTax,
-      mortgageInterestLimit: P.mortgageInterestLimit,
-      marginalTaxRate: P.marginalTaxRate,
-      standardDeduction: P.standardDeduction,
-      saltCap: P.saltCap,
-    });
-
-    const costs = P.annualCostsY1 * Math.pow(1 + P.costGrowth, y - 1);
-    const buyerOut = annualMtg + costs - taxBenefit;
-    const renterOut = startRent * 12 * Math.pow(1 + P.rentGrowth, y - 1);
-    // 투자계좌 음수 방지: 양수일 때만 수익률 적용
-    const investGain = renterInv > 0 ? renterInv * P.investReturn : 0;
-    renterInv = renterInv + investGain + (buyerOut - renterOut);
-  }
-
-  const hv = P.homePrice * Math.pow(1 + P.homeAppreciation, holdYears);
-  const sale = calcSaleOutcome(P, holdYears, hv, balance);
-  return {
-    buyerNW: sale.buyerNW,
-    renterNW: renterInv,
-    homeVal: hv,
-    balance: Math.max(0, balance),
-    taxableGain: sale.taxableGain,
-    capitalGainsTax: sale.capitalGainsTax,
-    saleProceeds: sale.saleProceeds,
-  };
-}
-
-function findBE(P, holdYears) {
-  let lo = 0, hi = Math.max(20000, P.homePrice / 48);
-  for (let i = 0; i < 60; i++) {
-    const mid = (lo + hi) / 2;
-    const { buyerNW, renterNW } = simulate(P, holdYears, mid);
-    if (renterNW > buyerNW) lo = mid; else hi = mid;
-  }
-  return (lo + hi) / 2;
-}
-
-function findBEnoInfl(P, holdYears) {
-  const mp = monthlyPmt(P.mortgage, P.mortgageRate, 360);
-  const annualMtg = mp * 12;
-  const year1Mortgage = amortizeYear(P.mortgage, P.mortgageRate, mp);
-  const year1PropTax = P.homePrice * P.propertyTaxRate;
-  const fixedTaxBenefit = calcTaxBenefit({
-    yearlyInterest: year1Mortgage.yearInterest,
-    avgBalance: year1Mortgage.avgBalance,
-    propertyTax: year1PropTax,
-    stateIncomeTax: P.stateIncomeTaxY1,
-    mortgageInterestLimit: P.mortgageInterestLimit,
-    marginalTaxRate: P.marginalTaxRate,
-    standardDeduction: P.standardDeduction,
-    saltCap: P.saltCap,
-  });
-  const buyerOut = annualMtg + P.annualCostsY1 - fixedTaxBenefit;
-
-  let lo = 0, hi = Math.max(20000, P.homePrice / 48);
-  for (let i = 0; i < 60; i++) {
-    const mid = (lo + hi) / 2;
-    let balance = P.mortgage;
-    let renterInv = P.downPayment + P.closingCost;
-    for (let y = 1; y <= holdYears; y++) {
-      const investGain = renterInv > 0 ? renterInv * P.investReturn : 0;
-      renterInv = renterInv + investGain + (buyerOut - mid * 12);
-      balance = amortizeYear(balance, P.mortgageRate, mp).endBalance;
-    }
-    const hv = P.homePrice * Math.pow(1 + P.homeAppreciation, holdYears);
-    const bNW = calcSaleOutcome(P, holdYears, hv, balance).buyerNW;
-    if (renterInv > bNW) lo = mid; else hi = mid;
-  }
-  return (lo + hi) / 2;
-}
 
 const sliderDefs = [
   { key: "downPct", label: "다운페이먼트", min: 0.20, max: 0.40, step: 0.01, format: pct },
@@ -211,7 +44,6 @@ export default function App() {
   const [showSliders, setShowSliders] = useState(false);
   const [showCashFlow, setShowCashFlow] = useState(false);
   const [activeRegion, setActiveRegion] = useState(null);
-  const yrs = [3, 5, 7, 10, 15, 20];
 
   const baseParams = useMemo(() => {
     if (!activeRegion) return DEFAULTS;
@@ -219,7 +51,7 @@ export default function App() {
     return reg ? { ...DEFAULTS, homePrice: reg.homePrice, propertyTaxRate: reg.propertyTaxRate, homeAppreciation: reg.homeAppreciation } : DEFAULTS;
   }, [activeRegion]);
 
-  const P = useMemo(() => derive(params), [params]);
+  const P = useMemo(() => deriveParams(params), [params]);
 
   const applyRegion = (reg) => {
     setActiveRegion(reg.name);
@@ -239,9 +71,7 @@ export default function App() {
     setActiveRegion(null);
   };
 
-  const allBE = useMemo(() => yrs.map(y => ({ y, r: findBE(P, y), rni: findBEnoInfl(P, y) })), [P]);
   const be = useMemo(() => findBE(P, hy), [P, hy]);
-  const beNI = useMemo(() => findBEnoInfl(P, hy), [P, hy]);
 
   // 핵심: 현재 월세로 시뮬레이션
   const result = useMemo(() => simulate(P, hy, currentRent), [P, hy, currentRent]);
@@ -433,7 +263,7 @@ export default function App() {
           const step = range <= 3000 ? 500 : 1000;
           for (let v = minV; v <= maxV; v += step) gridLines.push(v);
 
-          const selData = chartData.find(d => d.y === hy) || allBE.find(d => d.y === hy);
+          const selData = chartData.find(d => d.y === hy);
 
           return (
             <div style={{ background: "#111318", border: "1px solid #1e2430", borderRadius: 10, padding: "16px 18px", marginBottom: 20 }}>
