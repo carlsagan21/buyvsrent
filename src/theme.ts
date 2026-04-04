@@ -5,7 +5,7 @@ const theme = createTheme({
     mode: "dark",
     background: {
       default: "#0b0e13",
-      paper: "#121212", // MD standard dark surface for proper elevation overlays
+      paper: "#121212",
     },
     primary: {
       main: "#4a9eff",
@@ -22,15 +22,19 @@ const theme = createTheme({
     text: {
       primary: "#c9d1d9",
       secondary: "#8b949e",
+      disabled: "#4b5363",
     },
     divider: "rgba(255, 255, 255, 0.08)",
   },
   typography: {
     fontFamily: "'DM Sans', sans-serif",
     h1: { fontSize: 24, fontWeight: 700, color: "#e6edf3" },
+    h2: { fontSize: 22, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: "#e6edf3" }, // For Main Inputs
+    h3: { fontSize: 28, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }, // For Hero Results
     subtitle1: { fontSize: 13, color: "#8b949e" },
-    body2: { fontSize: 13, color: "#8b949e", lineHeight: 1.6 },
-    caption: { fontSize: 11, color: "#6b7280" },
+    subtitle2: { fontSize: 14, fontWeight: 700 }, // For "VS" or equivalent
+    body2: { fontSize: 12, color: "#8b949e", lineHeight: 1.6 },
+    caption: { fontSize: 12, color: "#8b949e" },
     overline: { fontSize: 11, fontWeight: 600, letterSpacing: 1.2, textTransform: "uppercase" },
   },
   components: {
@@ -50,15 +54,15 @@ const theme = createTheme({
     MuiPaper: {
       styleOverrides: {
         root: {
-          backgroundImage: undefined, // Let MUI apply MD2 gradient overlays per elevation
-          border: "none", // Remove the explicit border
+          backgroundImage: undefined,
+          border: "none",
         },
       },
     },
     MuiChip: {
       styleOverrides: {
         root: {
-          borderRadius: 16, // MD standard chip radius
+          borderRadius: 16,
           fontWeight: 500,
           fontSize: 13,
         },
@@ -85,6 +89,16 @@ const theme = createTheme({
         },
       },
     },
+    MuiTextField: {
+      defaultProps: {
+        variant: "outlined",
+      },
+      styleOverrides: {
+        root: {
+          // Standard inner padding tweaks if necessary
+        }
+      }
+    }
   },
 });
 

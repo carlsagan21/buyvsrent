@@ -55,8 +55,8 @@ const sliderDefs: SliderDef[] = [
 ];
 
 /* ── table styles ───────────────────────────────────────────────── */
-const hdr = { fontSize: 10, color: "#4b5363", py: "6px", borderBottom: "1px solid #1e2430" } as const;
-const cell = { fontFamily: MONO, fontSize: 12, py: "7px", borderBottom: "1px solid #1a1f26", color: "#9ca3b0" } as const;
+const hdr = { typography: "overline", color: "text.disabled", py: "6px", borderBottom: "1px solid", borderColor: "divider" } as const;
+const cell = { typography: "body2", fontFamily: MONO, py: "7px", borderBottom: "1px solid", borderColor: "divider", color: "text.secondary" } as const;
 
 /* ── component ──────────────────────────────────────────────────── */
 export default function App() {
@@ -110,7 +110,7 @@ export default function App() {
   const isDefault = JSON.stringify(params) === JSON.stringify(baseParams);
 
   /* ── number input helper ──────────────────────────────────────── */
-  const numInputSx = { input: { fontFamily: MONO, fontSize: 22, fontWeight: 700, color: "#e6edf3", p: "8px 0" } };
+  const numInputSx = { input: { typography: "h2", py: 1, textAlign: "center" } };
 
   return (
     <Box sx={{ minHeight: "100vh", py: "20px", px: "12px" }}>
@@ -167,13 +167,13 @@ export default function App() {
               />
             </Box>
             <Box>
-              <Typography variant="overline" sx={{ color: "primary.main" }}>거주 기간</Typography>
+              <Typography variant="overline" color="primary">거주 기간</Typography>
               <TextField
                 fullWidth variant="outlined" type="number"
                 value={hy === 0 ? "" : hy}
                 onChange={e => setHy(e.target.value === "" ? 0 : parseInt(e.target.value) || 0)}
                 slotProps={{ input: { endAdornment: <InputAdornment position="end"><Typography sx={{ fontSize: 12, fontWeight: 600 }}>년</Typography></InputAdornment> } }}
-                sx={{ ...numInputSx, input: { ...numInputSx.input, textAlign: "center" } }}
+                sx={{ ...numInputSx }}
               />
             </Box>
           </Box>
@@ -203,8 +203,8 @@ export default function App() {
               }}
             >
               <Typography variant="caption" sx={{ display: "block", mb: 0.5 }}>현재 월세</Typography>
-              <Typography sx={{ fontFamily: MONO, fontSize: 28, fontWeight: 700, color: !buyWins ? "warning.main" : "text.primary" }}>
-                {fmt(currentRent)}<Typography component="span" sx={{ fontSize: 14, fontWeight: 500 }}>/mo</Typography>
+              <Typography variant="h3" color={!buyWins ? "warning.main" : "text.primary"}>
+                {fmt(currentRent)}<Typography component="span" variant="subtitle2" sx={{ fontWeight: 500 }}>/mo</Typography>
               </Typography>
             </Paper>
             <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>VS</Typography>
@@ -217,13 +217,13 @@ export default function App() {
               }}
             >
               <Typography variant="caption" sx={{ display: "block", mb: 0.5 }}>손익분기 시작 월세*</Typography>
-              <Typography sx={{ fontFamily: MONO, fontSize: 28, fontWeight: 700, color: buyWins ? "success.main" : "text.primary" }}>
-                {fmt(Math.round(be))}<Typography component="span" sx={{ fontSize: 14, fontWeight: 500 }}>/mo</Typography>
+              <Typography variant="h3" color={buyWins ? "success.main" : "text.primary"}>
+                {fmt(Math.round(be))}<Typography component="span" variant="subtitle2" sx={{ fontWeight: 500 }}>/mo</Typography>
               </Typography>
             </Paper>
           </Box>
 
-          <Typography sx={{ fontFamily: MONO, fontSize: 22, fontWeight: 700, color: buyWins ? "success.main" : "warning.main", mt: 3 }}>
+          <Typography variant="h2" color={buyWins ? "success.main" : "warning.main"} sx={{ mt: 3 }}>
             {buyWins
               ? `현재 월세가 손익분기보다 ${fmt(Math.round(currentRent - be))} 높아 매수가 유리합니다`
               : `현재 월세가 손익분기보다 ${fmt(Math.round(be - currentRent))} 낮아 렌트가 유리합니다`}
@@ -368,8 +368,8 @@ export default function App() {
               {sliderDefs.map(({ key, label, min, max, step, format }) => (
                 <Box key={key}>
                   <Stack direction="row" justifyContent="space-between" mb={0.5}>
-                    <Typography sx={{ fontSize: 12, color: "text.secondary" }}>{label}</Typography>
-                    <Typography sx={{ fontFamily: MONO, fontSize: 12, color: params[key] !== baseParams[key] ? "primary.main" : "#9ca3b0", fontWeight: 600 }}>
+                    <Typography variant="caption" color="text.secondary">{label}</Typography>
+                    <Typography variant="caption" sx={{ fontFamily: MONO, color: params[key] !== baseParams[key] ? "primary.main" : "text.secondary", fontWeight: 600 }}>
                       {format(params[key])}
                     </Typography>
                   </Stack>
@@ -384,15 +384,15 @@ export default function App() {
           </Collapse>
 
           <Collapse in={!showSliders}>
-            <Box display="grid" gridTemplateColumns="1fr 1fr" gap="2px 24px" sx={{ fontSize: 12, color: "text.secondary", lineHeight: 1.9, mt: 1 }}>
-              <span>모기지: <b style={{ color: "#c9d1d9" }}>{fmt(P.mortgage)} @ {pct(P.mortgageRate)}</b></span>
-              <span>초기 투입: <b style={{ color: "#c9d1d9" }}>{fmt(P.downPayment + P.closingCost)}</b></span>
-              <span>유지비: <b style={{ color: "#c9d1d9" }}>{fmt(P.annualCostsY1)}/yr</b></span>
-              <span>주 소득세: <b style={{ color: "#c9d1d9" }}>{fmt(P.stateIncomeTaxY1)}/yr</b></span>
-              <span>투자 수익: <b style={{ color: "#c9d1d9" }}>{pct(P.investReturn)}/yr</b></span>
-              <span>양도차익세율: <b style={{ color: "#c9d1d9" }}>{pct(P.capitalGainsTaxRate)}</b></span>
-              <span>집값 상승: <b style={{ color: "#c9d1d9" }}>{pct(P.homeAppreciation)}/yr</b></span>
-              <span>매도 수수료: <b style={{ color: "#c9d1d9" }}>{pct(P.sellingCostPct)}</b></span>
+            <Box display="grid" gridTemplateColumns="1fr 1fr" gap="2px 24px" sx={{ typography: "caption", color: "text.secondary", lineHeight: 1.9, mt: 1 }}>
+              <span>모기지: <Typography component="span" variant="caption" color="text.primary" fontWeight="bold">{fmt(P.mortgage)} @ {pct(P.mortgageRate)}</Typography></span>
+              <span>초기 투입: <Typography component="span" variant="caption" color="text.primary" fontWeight="bold">{fmt(P.downPayment + P.closingCost)}</Typography></span>
+              <span>유지비: <Typography component="span" variant="caption" color="text.primary" fontWeight="bold">{fmt(P.annualCostsY1)}/yr</Typography></span>
+              <span>주 소득세: <Typography component="span" variant="caption" color="text.primary" fontWeight="bold">{fmt(P.stateIncomeTaxY1)}/yr</Typography></span>
+              <span>투자 수익: <Typography component="span" variant="caption" color="text.primary" fontWeight="bold">{pct(P.investReturn)}/yr</Typography></span>
+              <span>양도차익세율: <Typography component="span" variant="caption" color="text.primary" fontWeight="bold">{pct(P.capitalGainsTaxRate)}</Typography></span>
+              <span>집값 상승: <Typography component="span" variant="caption" color="text.primary" fontWeight="bold">{pct(P.homeAppreciation)}/yr</Typography></span>
+              <span>매도 수수료: <Typography component="span" variant="caption" color="text.primary" fontWeight="bold">{pct(P.sellingCostPct)}</Typography></span>
             </Box>
           </Collapse>
 
