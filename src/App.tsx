@@ -242,18 +242,6 @@ export default function App() {
                   <Button size="small" variant="outlined" onClick={(e) => { e.stopPropagation(); setParams(baseParams); }}>초기화</Button>
                 )}
               </Stack>
-              <Collapse in={!showSliders}>
-                <Box display="grid" gridTemplateColumns="1fr 1fr" gap="2px 24px">
-                  <span>모기지: <Typography component="span" variant="caption"><strong>{fmt(P.mortgage)} @ {pct(P.mortgageRate)}</strong></Typography></span>
-                  <span>초기 투입: <Typography component="span" variant="caption"><strong>{fmt(P.downPayment + P.closingCost)}</strong></Typography></span>
-                  <span>유지비: <Typography component="span" variant="caption"><strong>{fmt(P.annualCostsY1)}/yr</strong></Typography></span>
-                  <span>주 소득세: <Typography component="span" variant="caption"><strong>{fmt(P.stateIncomeTaxY1)}/yr</strong></Typography></span>
-                  <span>투자 수익: <Typography component="span" variant="caption"><strong>{pct(P.investReturn)}/yr</strong></Typography></span>
-                  <span>양도차익세율: <Typography component="span" variant="caption"><strong>{pct(P.capitalGainsTaxRate)}</strong></Typography></span>
-                  <span>집값 상승: <Typography component="span" variant="caption"><strong>{pct(P.homeAppreciation)}/yr</strong></Typography></span>
-                  <span>매도 수수료: <Typography component="span" variant="caption"><strong>{pct(P.sellingCostPct)}</strong></Typography></span>
-                </Box>
-              </Collapse>
             </Box>
           </AccordionSummary>
 
