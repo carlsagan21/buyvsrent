@@ -180,20 +180,42 @@ export default function App() {
         </Paper>
 
         {/* HERO VERDICT */}
-        <Paper elevation={4} sx={{ borderRadius: 3.5, p: "24px 20px", mb: 2.5, textAlign: "center" }}>
+        <Paper
+          variant="outlined"
+          sx={{
+            borderRadius: 3.5, p: "24px 20px", mb: 2.5, textAlign: "center",
+            borderWidth: 1,
+            borderColor: buyWins ? "rgba(74, 222, 128, 0.4)" : "rgba(251, 191, 36, 0.4)",
+            bgcolor: buyWins ? "rgba(74, 222, 128, 0.03)" : "rgba(251, 191, 36, 0.03)"
+          }}
+        >
           <Typography sx={{ fontSize: 13, fontWeight: 700, color: buyWins ? "success.main" : "warning.main", letterSpacing: 0.5, mb: 2 }}>
             {hy}년 거주 시 · 순자산 기준 손익분기
           </Typography>
 
           <Box display="grid" gridTemplateColumns="1fr auto 1fr" alignItems="center" gap={1.25} mt={0.5}>
-            <Paper elevation={2} sx={{ borderRadius: 2.5, p: "16px 10px", textAlign: "center" }}>
+            <Paper
+              variant="outlined"
+              sx={{
+                borderRadius: 2.5, p: "16px 10px", textAlign: "center",
+                borderColor: !buyWins ? "warning.main" : "divider",
+                bgcolor: "background.default"
+              }}
+            >
               <Typography variant="caption" sx={{ display: "block", mb: 0.5 }}>현재 월세</Typography>
               <Typography sx={{ fontFamily: MONO, fontSize: 28, fontWeight: 700, color: !buyWins ? "warning.main" : "text.primary" }}>
                 {fmt(currentRent)}<Typography component="span" sx={{ fontSize: 14, fontWeight: 500 }}>/mo</Typography>
               </Typography>
             </Paper>
             <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>VS</Typography>
-            <Paper elevation={2} sx={{ borderRadius: 2.5, p: "16px 10px", textAlign: "center" }}>
+            <Paper
+              variant="outlined"
+              sx={{
+                borderRadius: 2.5, p: "16px 10px", textAlign: "center",
+                borderColor: buyWins ? "success.main" : "divider",
+                bgcolor: "background.default"
+              }}
+            >
               <Typography variant="caption" sx={{ display: "block", mb: 0.5 }}>손익분기 시작 월세*</Typography>
               <Typography sx={{ fontFamily: MONO, fontSize: 28, fontWeight: 700, color: buyWins ? "success.main" : "text.primary" }}>
                 {fmt(Math.round(be))}<Typography component="span" sx={{ fontSize: 14, fontWeight: 500 }}>/mo</Typography>
