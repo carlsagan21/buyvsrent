@@ -81,7 +81,7 @@ function amortizeYear(balance, rate, monthlyPayment) {
     nextBalance -= (monthlyPayment - monthlyInterest);
   }
 
-  return { endBalance: nextBalance, yearInterest, avgBalance: balanceSum / 12 };
+  return { endBalance: nextBalance, yearInterest, yearPrincipal: balance - nextBalance, avgBalance: balanceSum / 12 };
 }
 
 function calcSaleOutcome(P, holdYears, homeVal, balance) {
@@ -270,8 +270,9 @@ export default function App() {
       });
       const costs = P.annualCostsY1 * Math.pow(1 + P.costGrowth, y - 1);
       const bOut = annualMtg + costs - taxBen;
+      const bPrin = yearMortgage.yearPrincipal;
       const rOut = currentRent * 12 * Math.pow(1 + P.rentGrowth, y - 1);
-      d.push({ year: y, bOut: Math.round(bOut), rOut: Math.round(rOut), mRent: Math.round(currentRent * Math.pow(1 + P.rentGrowth, y - 1)), costs: Math.round(costs) });
+      d.push({ year: y, bOut: Math.round(bOut), bPrin: Math.round(bPrin), rOut: Math.round(rOut), mRent: Math.round(currentRent * Math.pow(1 + P.rentGrowth, y - 1)), costs: Math.round(costs) });
     }
     return d;
   }, [P, hy, currentRent, annualMtg, mp]);
@@ -510,15 +511,17 @@ export default function App() {
           <div style={{ fontSize: 11, fontWeight: 600, color: "#4a9eff", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 12 }}>
             연도별 현금 흐름 (1년차 월세 {fmt(currentRent)} 기준)
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "36px 1fr 1fr 80px", gap: 0 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "30px 1.1fr 0.9fr 1.1fr 74px", gap: 0 }}>
             <div style={hdr}>년</div>
             <div style={{ ...hdr, textAlign: "right" }}>매수 연지출</div>
+            <div style={{ ...hdr, textAlign: "right", color: "#6b7280" }}>(그중 원금)</div>
             <div style={{ ...hdr, textAlign: "right" }}>렌트 연지출</div>
             <div style={{ ...hdr, textAlign: "right" }}>월 렌트</div>
             {details.filter((_, i) => hy <= 10 || i % 2 === 0 || i === details.length - 1).map(d => (
               <div key={d.year} style={{ display: "contents" }}>
                 <div style={cell}>{d.year}</div>
                 <div style={{ ...cell, textAlign: "right", color: "#f87171" }}>{fmt(d.bOut)}</div>
+                <div style={{ ...cell, textAlign: "right", color: "#6b7280" }}>{fmt(d.bPrin)}</div>
                 <div style={{ ...cell, textAlign: "right", color: "#4ade80" }}>{fmt(d.rOut)}</div>
                 <div style={{ ...cell, textAlign: "right", color: "#8b949e" }}>{fmt(d.mRent)}/mo</div>
               </div>
