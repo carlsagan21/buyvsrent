@@ -526,7 +526,11 @@ export default function App() {
           </div>
           <div style={{ fontSize: 11, color: "#4b5363", marginTop: 10, lineHeight: 1.6 }}>
             모기지 P+I ({fmt(Math.round(annualMtg))}/yr)는 고정이지만 유지비는 매년 ↑<br />
-            렌트도 매년 {pct(P.rentGrowth)} ↑ → 후반부에 매수 지출과 렌트 지출이 역전
+            렌트도 매년 {pct(P.rentGrowth)} ↑ → 장기 거주 시 매수 지출과 렌트 지출의 격차가 줄어듭니다.<br />
+            <span style={{ color: "#9ca3b0", display: "inline-block", marginTop: 4 }}>
+              💡 <strong>왜 매년 돈이 더 많이 나가는데 매수가 유리하다고 나오나요?</strong><br />
+              매수 연지출에는 은행에 내는 <strong>모기지 원금(순자산으로 100% 쌓임)</strong>이 포함되어 있습니다. 또한, 내 집 마련 시 매년 발생하는 <strong>부동산 가치 상승분(레버리지 효과)</strong>이 당장의 높은 월 지출액을 압도적으로 상쇄하기 때문입니다.
+            </span>
           </div>
         </div>
 
