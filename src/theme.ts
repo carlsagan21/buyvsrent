@@ -5,7 +5,7 @@ const theme = createTheme({
     mode: "dark",
     background: {
       default: "#0b0e13",
-      paper: "#111318",
+      paper: "#121212", // MD standard dark surface for proper elevation overlays
     },
     primary: {
       main: "#4a9eff",
@@ -21,15 +21,17 @@ const theme = createTheme({
     },
     text: {
       primary: "#c9d1d9",
-      secondary: "#6b7280",
+      secondary: "#8b949e",
     },
-    divider: "#1e2430",
+    divider: "rgba(255, 255, 255, 0.08)",
   },
   typography: {
     fontFamily: "'DM Sans', sans-serif",
-    h1: { fontSize: 22, fontWeight: 700, color: "#e6edf3" },
-    subtitle1: { fontSize: 12, color: "#4b5363" },
-    body2: { fontSize: 12, color: "#6b7280", lineHeight: 1.6 },
+    h1: { fontSize: 24, fontWeight: 700, color: "#e6edf3" },
+    subtitle1: { fontSize: 13, color: "#8b949e" },
+    body2: { fontSize: 13, color: "#8b949e", lineHeight: 1.6 },
+    caption: { fontSize: 11, color: "#6b7280" },
+    overline: { fontSize: 11, fontWeight: 600, letterSpacing: 1.2, textTransform: "uppercase" },
   },
   components: {
     MuiCssBaseline: {
@@ -48,39 +50,28 @@ const theme = createTheme({
     MuiPaper: {
       styleOverrides: {
         root: {
-          backgroundImage: "none",
-          border: "1px solid #1e2430",
+          backgroundImage: undefined, // Let MUI apply MD2 gradient overlays per elevation
+          border: "none", // Remove the explicit border
         },
       },
     },
     MuiChip: {
       styleOverrides: {
         root: {
-          borderRadius: 20,
+          borderRadius: 16, // MD standard chip radius
           fontWeight: 500,
-          fontSize: 12,
-          transition: "all 0.2s ease",
+          fontSize: 13,
         },
       },
     },
     MuiSlider: {
       styleOverrides: {
         root: {
-          height: 4,
           color: "#4a9eff",
         },
-        rail: {
-          backgroundColor: "#1e2430",
-          opacity: 1,
-        },
-        track: {
-          border: "none",
-        },
         thumb: {
-          width: 14,
-          height: 14,
           "&:hover, &.Mui-focusVisible": {
-            boxShadow: "0 0 0 6px rgba(74, 158, 255, 0.16)",
+            boxShadow: "0 0 0 8px rgba(74, 158, 255, 0.16)",
           },
         },
       },
@@ -89,11 +80,8 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           textTransform: "none",
-          fontWeight: 500,
-          fontSize: 11,
-          borderRadius: 5,
-          minWidth: 0,
-          padding: "4px 10px",
+          fontWeight: 600,
+          borderRadius: 8,
         },
       },
     },

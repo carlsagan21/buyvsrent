@@ -144,62 +144,58 @@ export default function App() {
         </Stack>
 
         {/* PRIMARY INPUTS */}
-        <Paper sx={{ borderRadius: 3, p: "20px 18px", mb: 2 }}>
+        <Paper elevation={1} sx={{ borderRadius: 3, p: "20px 18px", mb: 2 }}>
           <Box display="grid" gridTemplateColumns="1fr 1fr 90px" gap={1.5}>
             <Box>
-              <Typography variant="overline" sx={{ color: "primary.main", fontWeight: 600, letterSpacing: 1, fontSize: 11 }}>현재 월세</Typography>
+              <Typography variant="overline" sx={{ color: "primary.main" }}>현재 월세</Typography>
               <TextField
-                fullWidth variant="standard" type="number"
+                fullWidth variant="outlined" type="number"
                 value={currentRent === 0 ? "" : currentRent}
                 onChange={e => setCurrentRent(e.target.value === "" ? 0 : parseInt(e.target.value) || 0)}
-                slotProps={{ input: { disableUnderline: true, startAdornment: <InputAdornment position="start"><Typography sx={{ color: "#6b7280", fontSize: 18, fontWeight: 600 }}>$</Typography></InputAdornment>, endAdornment: <InputAdornment position="end"><Typography sx={{ color: "#4b5363", fontSize: 11 }}>/mo</Typography></InputAdornment> } }}
-                sx={{ ...numInputSx, bgcolor: "#0b0e13", borderRadius: 2, border: "1px solid #1e2430", px: 1.5 }}
+                slotProps={{ input: { startAdornment: <InputAdornment position="start"><Typography sx={{ color: "text.secondary", fontSize: 18, fontWeight: 600 }}>$</Typography></InputAdornment>, endAdornment: <InputAdornment position="end"><Typography variant="caption">/mo</Typography></InputAdornment> } }}
+                sx={{ ...numInputSx }}
               />
             </Box>
             <Box>
-              <Typography variant="overline" sx={{ color: "primary.main", fontWeight: 600, letterSpacing: 1, fontSize: 11 }}>매수 가격</Typography>
+              <Typography variant="overline" sx={{ color: "primary.main" }}>매수 가격</Typography>
               <TextField
-                fullWidth variant="standard" type="number"
+                fullWidth variant="outlined" type="number"
                 value={params.homePrice === 0 ? "" : params.homePrice}
                 onChange={e => setP("homePrice", e.target.value === "" ? 0 : parseInt(e.target.value) || 0)}
-                slotProps={{ input: { disableUnderline: true, startAdornment: <InputAdornment position="start"><Typography sx={{ color: "#6b7280", fontSize: 18, fontWeight: 600 }}>$</Typography></InputAdornment> } }}
-                sx={{ ...numInputSx, bgcolor: "#0b0e13", borderRadius: 2, border: "1px solid #1e2430", px: 1.5 }}
+                slotProps={{ input: { startAdornment: <InputAdornment position="start"><Typography sx={{ color: "text.secondary", fontSize: 18, fontWeight: 600 }}>$</Typography></InputAdornment> } }}
+                sx={{ ...numInputSx }}
               />
             </Box>
             <Box>
-              <Typography variant="overline" sx={{ color: "primary.main", fontWeight: 600, letterSpacing: 1, fontSize: 11 }}>거주 기간</Typography>
+              <Typography variant="overline" sx={{ color: "primary.main" }}>거주 기간</Typography>
               <TextField
-                fullWidth variant="standard" type="number"
+                fullWidth variant="outlined" type="number"
                 value={hy === 0 ? "" : hy}
                 onChange={e => setHy(e.target.value === "" ? 0 : parseInt(e.target.value) || 0)}
-                slotProps={{ input: { disableUnderline: true, endAdornment: <InputAdornment position="end"><Typography sx={{ color: "#4b5363", fontSize: 12, fontWeight: 600 }}>년</Typography></InputAdornment> } }}
-                sx={{ ...numInputSx, bgcolor: "#0b0e13", borderRadius: 2, border: "1px solid #1e2430", px: 1.5, input: { ...numInputSx.input, textAlign: "center" } }}
+                slotProps={{ input: { endAdornment: <InputAdornment position="end"><Typography sx={{ fontSize: 12, fontWeight: 600 }}>년</Typography></InputAdornment> } }}
+                sx={{ ...numInputSx, input: { ...numInputSx.input, textAlign: "center" } }}
               />
             </Box>
           </Box>
         </Paper>
 
         {/* HERO VERDICT */}
-        <Paper sx={{
-          borderRadius: 3.5, p: "24px 20px", mb: 2.5, textAlign: "center",
-          background: buyWins ? "linear-gradient(135deg, #0f2418, #0d1a14)" : "linear-gradient(135deg, #1a1410, #14100d)",
-          borderColor: buyWins ? "#166534" : "#92400e",
-        }}>
+        <Paper elevation={4} sx={{ borderRadius: 3.5, p: "24px 20px", mb: 2.5, textAlign: "center" }}>
           <Typography sx={{ fontSize: 13, fontWeight: 700, color: buyWins ? "success.main" : "warning.main", letterSpacing: 0.5, mb: 2 }}>
             {hy}년 거주 시 · 순자산 기준 손익분기
           </Typography>
 
           <Box display="grid" gridTemplateColumns="1fr auto 1fr" alignItems="center" gap={1.25} mt={0.5}>
-            <Paper sx={{ borderRadius: 2.5, p: "16px 10px", border: !buyWins ? "1px solid #fbbf24" : "1px solid #1e2430", textAlign: "center" }}>
-              <Typography sx={{ fontSize: 11, color: "text.secondary", mb: 0.5 }}>현재 월세</Typography>
-              <Typography sx={{ fontFamily: MONO, fontSize: 28, fontWeight: 700, color: !buyWins ? "warning.main" : "#9ca3b0" }}>
+            <Paper elevation={2} sx={{ borderRadius: 2.5, p: "16px 10px", textAlign: "center" }}>
+              <Typography variant="caption" sx={{ display: "block", mb: 0.5 }}>현재 월세</Typography>
+              <Typography sx={{ fontFamily: MONO, fontSize: 28, fontWeight: 700, color: !buyWins ? "warning.main" : "text.primary" }}>
                 {fmt(currentRent)}<Typography component="span" sx={{ fontSize: 14, fontWeight: 500 }}>/mo</Typography>
               </Typography>
             </Paper>
-            <Typography sx={{ fontSize: 14, color: "#4b5363", fontWeight: 700 }}>VS</Typography>
-            <Paper sx={{ borderRadius: 2.5, p: "16px 10px", border: buyWins ? "1px solid #4ade80" : "1px solid #1e2430", textAlign: "center" }}>
-              <Typography sx={{ fontSize: 11, color: "text.secondary", mb: 0.5 }}>손익분기 시작 월세*</Typography>
-              <Typography sx={{ fontFamily: MONO, fontSize: 28, fontWeight: 700, color: buyWins ? "success.main" : "#9ca3b0" }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>VS</Typography>
+            <Paper elevation={2} sx={{ borderRadius: 2.5, p: "16px 10px", textAlign: "center" }}>
+              <Typography variant="caption" sx={{ display: "block", mb: 0.5 }}>손익분기 시작 월세*</Typography>
+              <Typography sx={{ fontFamily: MONO, fontSize: 28, fontWeight: 700, color: buyWins ? "success.main" : "text.primary" }}>
                 {fmt(Math.round(be))}<Typography component="span" sx={{ fontSize: 14, fontWeight: 500 }}>/mo</Typography>
               </Typography>
             </Paper>
@@ -212,7 +208,7 @@ export default function App() {
           </Typography>
 
           <Typography variant="body2" sx={{ mt: 2.5, textAlign: "left", px: 1 }}>
-            * <b style={{ color: "#8b949e" }}>손익분기 시작 월세:</b> 1년차 시작 월세를 뜻하며, 해당 월세에서 렌트가 매년 상승할 때 {hy}년 후 <b>최종 순자산</b>이 매수와 같아지는 지점입니다. 즉 현재의 실지출 월비용이 아니라 순자산 기준 손익분기선입니다.
+            * <b>손익분기 시작 월세:</b> 1년차 시작 월세를 뜻하며, 해당 월세에서 렌트가 매년 상승할 때 {hy}년 후 <b>최종 순자산</b>이 매수와 같아지는 지점입니다. 즉 현재의 실지출 월비용이 아니라 순자산 기준 손익분기선입니다.
           </Typography>
         </Paper>
 
@@ -243,7 +239,7 @@ export default function App() {
 
           return (
             <Paper sx={{ borderRadius: 2.5, p: "16px 18px", mb: 2.5 }}>
-              <Typography variant="overline" sx={{ color: "primary.main", fontWeight: 600, letterSpacing: 1.2, display: "block", mb: 1.5 }}>
+              <Typography variant="overline" sx={{ color: "primary.main", display: "block", mb: 1.5 }}>
                 보유 기간별 손익분기 시작 월세
               </Typography>
               <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", overflow: "visible" }}>
@@ -283,12 +279,12 @@ export default function App() {
                   </g>
                 )}
               </svg>
-              <Stack direction="row" spacing={2.5} mt={1} sx={{ fontSize: 11, color: "text.secondary" }}>
-                <Stack direction="row" alignItems="center" spacing={0.6}><Box sx={{ width: 16, height: 3, bgcolor: "#3b82f6", borderRadius: 2 }} />인플레 반영</Stack>
-                <Stack direction="row" alignItems="center" spacing={0.6}><Box sx={{ width: 16, height: 0, borderTop: "2px dashed #555d6b" }} />인플레 미반영</Stack>
-                <Typography variant="body2" sx={{ ml: "auto !important", color: "#4b5363" }}>점 클릭 → 보유 기간 선택</Typography>
+              <Stack direction="row" spacing={2.5} mt={1} sx={{ color: "text.secondary" }}>
+                <Stack direction="row" alignItems="center" spacing={0.6}><Box sx={{ width: 16, height: 3, bgcolor: "#3b82f6", borderRadius: 2 }} /><Typography variant="caption">인플레 반영</Typography></Stack>
+                <Stack direction="row" alignItems="center" spacing={0.6}><Box sx={{ width: 16, height: 0, borderTop: "2px dashed #555d6b" }} /><Typography variant="caption">인플레 미반영</Typography></Stack>
+                <Typography variant="caption" sx={{ ml: "auto !important" }}>점 클릭 → 보유 기간 선택</Typography>
               </Stack>
-              <Typography variant="body2" sx={{ mt: 0.75, color: "#4b5363" }}>선이 낮을수록 더 낮은 시작 월세에서도 매수와 렌트의 최종 순자산이 같아집니다.</Typography>
+              <Typography variant="caption" sx={{ display: "block", mt: 0.75 }}>선이 낮을수록 더 낮은 시작 월세에서도 매수와 렌트의 최종 순자산이 같아집니다.</Typography>
             </Paper>
           );
         })()}
@@ -334,12 +330,10 @@ export default function App() {
         {/* ASSUMPTIONS (collapsible) */}
         <Paper sx={{ borderRadius: 2.5, p: "16px 18px", mb: 2.5 }}>
           <Stack direction="row" justifyContent="space-between" alignItems="center" mb={showSliders ? 1.75 : 0}>
-            <Typography variant="overline" sx={{ color: "primary.main", fontWeight: 600, letterSpacing: 1.2 }}>전제 조건</Typography>
+            <Typography variant="overline" sx={{ color: "primary.main" }}>전제 조건</Typography>
             <Stack direction="row" spacing={1} alignItems="center">
               {!isDefault && (
-                <Button variant="outlined" onClick={() => setParams(baseParams)}
-                  sx={{ borderColor: "#333", color: "text.secondary" }}
-                >초기화</Button>
+                <Button variant="outlined" onClick={() => setParams(baseParams)} color="inherit">초기화</Button>
               )}
               <Button variant={showSliders ? "contained" : "text"} onClick={() => setShowSliders(!showSliders)}
                 sx={{ color: showSliders ? "#fff" : "text.secondary", bgcolor: showSliders ? "primary.main" : "#151920" }}
@@ -380,15 +374,15 @@ export default function App() {
             </Box>
           </Collapse>
 
-          <Box sx={{ mt: 1.25, pt: 1, borderTop: "1px solid #1e2430" }}>
-            <Typography variant="overline" sx={{ color: "#555d6b", letterSpacing: 1, fontSize: 10, display: "block", mb: 0.5 }}>고정 가정</Typography>
-            <Box display="grid" gridTemplateColumns="1fr 1fr" gap="1px 24px" sx={{ fontSize: 11, color: "#4b5363", lineHeight: 1.8 }}>
-              <span>모기지: <b style={{ color: "#6b7280" }}>30년 고정</b></span>
+          <Box sx={{ mt: 1.25, pt: 1, borderTop: "1px solid", borderColor: "divider" }}>
+            <Typography variant="overline" sx={{ color: "text.secondary", display: "block", mb: 0.5 }}>고정 가정</Typography>
+            <Box display="grid" gridTemplateColumns="1fr 1fr" gap="1px 24px" sx={{ fontSize: 11, color: "#8b949e", lineHeight: 1.8 }}>
+              <span>모기지: <b>30년 고정</b></span>
               <span>MFJ $300K · {pct(P.marginalTaxRate)}</span>
-              <span>표준공제: <b style={{ color: "#6b7280" }}>{fmt(P.standardDeduction)}</b></span>
-              <span>SALT cap: <b style={{ color: "#6b7280" }}>{fmt(P.saltCap)}</b></span>
-              <span>이자공제 한도: <b style={{ color: "#6b7280" }}>{fmt(P.mortgageInterestLimit)}</b></span>
-              <span>양도차익 비과세: <b style={{ color: "#6b7280" }}>{fmt(P.homeSaleGainExclusion)}</b></span>
+              <span>표준공제: <b>{fmt(P.standardDeduction)}</b></span>
+              <span>SALT cap: <b>{fmt(P.saltCap)}</b></span>
+              <span>이자공제 한도: <b>{fmt(P.mortgageInterestLimit)}</b></span>
+              <span>양도차익 비과세: <b>{fmt(P.homeSaleGainExclusion)}</b></span>
             </Box>
           </Box>
         </Paper>
