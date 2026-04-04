@@ -257,16 +257,7 @@ export default function App() {
             * <b style={{ color: "#8b949e" }}>손익분기 시작 월세:</b> 1년차 시작 월세를 뜻하며, 해당 월세에서 렌트가 매년 상승할 때 {hy}년 후 <b>최종 순자산</b>이 매수와 같아지는 지점입니다. 즉 현재의 실지출 월비용이 아니라 순자산 기준 손익분기선입니다.
           </div>
           
-          <div style={{ background: "#0b0e13", borderRadius: 8, padding: "12px", marginTop: 16, fontSize: 11, color: "#8b949e", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span>{hy}년 후 순자산</span>
-            <span>
-              매수(after-tax) <b style={{ color: "#c9d1d9" }}>{fmt(Math.round(result.buyerNW))}</b> vs 
-              렌트 <b style={{ color: "#c9d1d9" }}>{fmt(Math.round(result.renterNW))}</b>
-            </span>
-          </div>
-          <div style={{ marginTop: 8, fontSize: 11, color: "#4b5363", textAlign: "left", padding: "0 8px" }}>
-            매도 수수료와 초과 양도차익세 {fmt(Math.round(result.capitalGainsTax))} 반영
-          </div>
+
         </div>
 
         {/* ALL YEARS CHART */}
