@@ -324,9 +324,9 @@ export default function App() {
           </div>
         </div>
 
-        {/* PRIMARY INPUT: 현재 월세 + 집값 */}
+        {/* PRIMARY INPUT: 현재 월세 + 집값 + 거주기간 */}
         <div style={{ background: "#111318", border: "1px solid #1e2430", borderRadius: 12, padding: "20px 18px", marginBottom: 16 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 90px", gap: 12 }}>
             <div>
               <div style={{ fontSize: 11, fontWeight: 600, color: "#4a9eff", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>현재 월세</div>
               <div style={{ display: "flex", alignItems: "center", background: "#0b0e13", borderRadius: 8, border: "1px solid #1e2430", padding: "8px 12px" }}>
@@ -344,20 +344,14 @@ export default function App() {
                   style={{ background: "none", border: "none", color: "#e6edf3", fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 700, width: "100%", outline: "none" }} />
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* HOLDING PERIOD */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 6, fontWeight: 500 }}>거주 기간</div>
-          <div style={{ display: "flex", gap: 6 }}>
-            {yrs.map(y => (
-              <button key={y} onClick={() => setHy(y)} style={{
-                flex: 1, padding: "8px 0", borderRadius: 8, border: "none", cursor: "pointer",
-                fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600,
-                background: hy === y ? "#1d4ed8" : "#151920", color: hy === y ? "#fff" : "#6b7280",
-              }}>{y}년</button>
-            ))}
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#4a9eff", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>거주 기간</div>
+              <div style={{ display: "flex", alignItems: "center", background: "#0b0e13", borderRadius: 8, border: "1px solid #1e2430", padding: "8px 12px" }}>
+                <input type="number" value={hy === 0 ? "" : hy} onChange={e => setHy(e.target.value === "" ? 0 : parseInt(e.target.value) || 0)}
+                  style={{ background: "none", border: "none", color: "#e6edf3", fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 700, width: "100%", outline: "none", textAlign: "center" }} />
+                <span style={{ color: "#4b5363", fontSize: 12, fontWeight: 600, marginLeft: 4, whiteSpace: "nowrap" }}>년</span>
+              </div>
+            </div>
           </div>
         </div>
 
