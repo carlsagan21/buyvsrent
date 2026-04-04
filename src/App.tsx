@@ -110,17 +110,17 @@ export default function App() {
   const isDefault = JSON.stringify(params) === JSON.stringify(baseParams);
 
   /* ── number input helper ──────────────────────────────────────── */
-  const numInputSx = { input: { typography: "h2", py: 1, textAlign: "center" } };
+  const numInputSx = { input: { typography: "h5", py: 1.5, textAlign: "center", fontFamily: MONO } };
 
   return (
-    <Box sx={{ minHeight: "100vh", py: "20px", px: "12px" }}>
-      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <Box sx={{ minHeight: "100vh", py: "30px", px: "16px" }}>
+      <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
       <Container maxWidth={false} sx={{ maxWidth: 680 }} disableGutters>
 
         {/* TITLE */}
-        <Box textAlign="center" mb={3}>
-          <Typography variant="h1">Buy vs Rent 계산기</Typography>
-          <Typography variant="subtitle1" mt={0.75}>세금·매도비용·투자수익까지 반영한 실질 비교</Typography>
+        <Box textAlign="center" mb={4}>
+          <Typography variant="h4" component="h1" fontWeight="bold">Buy vs Rent 계산기</Typography>
+          <Typography variant="subtitle1" color="text.secondary" mt={0.5}>세금·매도비용·투자수익까지 반영한 실질 비교</Typography>
         </Box>
 
         {/* REGION PRESETS */}
@@ -181,12 +181,9 @@ export default function App() {
 
         {/* HERO VERDICT */}
         <Paper
-          variant="outlined"
+          elevation={2}
           sx={{
-            borderRadius: 3.5, p: "24px 20px", mb: 2.5, textAlign: "center",
-            borderWidth: 1,
-            borderColor: buyWins ? "rgba(74, 222, 128, 0.4)" : "rgba(251, 191, 36, 0.4)",
-            bgcolor: buyWins ? "rgba(74, 222, 128, 0.03)" : "rgba(251, 191, 36, 0.03)"
+            borderRadius: 3.5, p: "32px 20px", mb: 3, textAlign: "center",
           }}
         >
           <Typography sx={{ fontSize: 13, fontWeight: 700, color: buyWins ? "success.main" : "warning.main", letterSpacing: 0.5, mb: 2 }}>
@@ -203,8 +200,8 @@ export default function App() {
               }}
             >
               <Typography variant="caption" sx={{ display: "block", mb: 0.5 }}>현재 월세</Typography>
-              <Typography variant="h3" color={!buyWins ? "warning.main" : "text.primary"}>
-                {fmt(currentRent)}<Typography component="span" variant="subtitle2" sx={{ fontWeight: 500 }}>/mo</Typography>
+              <Typography variant="h4" fontWeight="bold" color={!buyWins ? "warning.main" : "text.primary"} sx={{ fontFamily: MONO }}>
+                {fmt(currentRent)}<Typography component="span" variant="subtitle1" sx={{ fontWeight: 500 }}>/mo</Typography>
               </Typography>
             </Paper>
             <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>VS</Typography>
@@ -217,13 +214,13 @@ export default function App() {
               }}
             >
               <Typography variant="caption" sx={{ display: "block", mb: 0.5 }}>손익분기 시작 월세*</Typography>
-              <Typography variant="h3" color={buyWins ? "success.main" : "text.primary"}>
-                {fmt(Math.round(be))}<Typography component="span" variant="subtitle2" sx={{ fontWeight: 500 }}>/mo</Typography>
+              <Typography variant="h4" fontWeight="bold" color={buyWins ? "success.main" : "text.primary"} sx={{ fontFamily: MONO }}>
+                {fmt(Math.round(be))}<Typography component="span" variant="subtitle1" sx={{ fontWeight: 500 }}>/mo</Typography>
               </Typography>
             </Paper>
           </Box>
 
-          <Typography variant="h2" color={buyWins ? "success.main" : "warning.main"} sx={{ mt: 3 }}>
+          <Typography variant="h6" fontWeight="bold" color={buyWins ? "success.main" : "warning.main"} sx={{ mt: 3.5 }}>
             {buyWins
               ? `현재 월세가 손익분기보다 ${fmt(Math.round(currentRent - be))} 높아 매수가 유리합니다`
               : `현재 월세가 손익분기보다 ${fmt(Math.round(be - currentRent))} 낮아 렌트가 유리합니다`}
