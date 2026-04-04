@@ -276,12 +276,6 @@ export default function App() {
     return d;
   }, [P, hy, currentRent, annualMtg, mp]);
 
-  const samples = [2500, 3000, 3500, 4000, 4500, 5000, 5500];
-  const comp = useMemo(() => samples.map(r => {
-    const { buyerNW, renterNW } = simulate(P, hy, r);
-    return { rent: r, bNW: buyerNW, rNW: renterNW };
-  }), [P, hy]);
-
   const isDefault = JSON.stringify(params) === JSON.stringify(baseParams);
 
   return (
@@ -542,30 +536,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* SAMPLE RENT COMPARISON */}
-        <div style={{ background: "#111318", border: "1px solid #1e2430", borderRadius: 10, padding: "16px 18px", marginBottom: 20 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "#4a9eff", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 12 }}>
-            1년차 시작 월세별 · {hy}년 후 순자산 비교
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "70px 1fr 1fr 80px", gap: 0 }}>
-            <div style={hdr}>월 렌트</div>
-            <div style={{ ...hdr, textAlign: "right" }}>렌트 순자산</div>
-            <div style={{ ...hdr, textAlign: "right" }}>매수 순자산</div>
-            <div style={{ ...hdr, textAlign: "right" }}>판정</div>
-            {comp.map(({ rent, bNW, rNW }) => {
-              const rw = rNW > bNW;
-              return (
-                <div key={rent} style={{ display: "contents" }}>
-                  <div style={{ ...cell, fontWeight: 600 }}>{fmt(rent)}</div>
-                  <div style={{ ...cell, textAlign: "right", color: rw ? "#4ade80" : "#6b7280" }}>{fmt(rNW)}</div>
-                  <div style={{ ...cell, textAlign: "right", color: !rw ? "#4ade80" : "#6b7280" }}>{fmt(bNW)}</div>
-                  <div style={{ ...cell, textAlign: "right", fontWeight: 600, color: rw ? "#4ade80" : "#f87171" }}>{rw ? "렌트 ✓" : "매수 ✓"}</div>
-                </div>
-              );
-            })}
-          </div>
-          <div style={{ fontSize: 11, color: "#4b5363", marginTop: 10 }}>렌트는 매년 {pct(P.rentGrowth)}↑ 가정 · 매수 순자산 = 집 매도(−{pct(P.sellingCostPct)}) 후 초과 양도차익세 반영 equity</div>
-        </div>
+
         {/* ASSUMPTIONS (collapsible) */}
         <div style={{ background: "#111318", border: "1px solid #1e2430", borderRadius: 10, padding: "16px 18px", marginBottom: 20 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: showSliders ? 14 : 0 }}>
