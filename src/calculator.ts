@@ -1,4 +1,71 @@
-export const DEFAULTS = {
+export interface CalculatorParams {
+  homePrice: number;
+  downPct: number;
+  closingPct: number;
+  mortgageRate: number;
+  propertyTaxRate: number;
+  insuranceY1: number;
+  maintenanceY1: number;
+  marginalTaxRate: number;
+  stateIncomeTaxY1: number;
+  standardDeduction: number;
+  saltCap: number;
+  mortgageInterestLimit: number;
+  homeAppreciation: number;
+  investReturn: number;
+  costGrowth: number;
+  rentGrowth: number;
+  sellingCostPct: number;
+  capitalGainsTaxRate: number;
+  homeSaleGainExclusion: number;
+}
+
+export interface RegionPreset {
+  name: string;
+  homePrice: number;
+  propertyTaxRate: number;
+  homeAppreciation: number;
+}
+
+export interface TaxBenefitInput {
+  yearlyInterest: number;
+  avgBalance: number;
+  propertyTax: number;
+  stateIncomeTax: number;
+  mortgageInterestLimit: number;
+  marginalTaxRate: number;
+  standardDeduction: number;
+  saltCap: number;
+}
+
+export interface DerivedParams extends CalculatorParams {
+  downPayment: number;
+  closingCost: number;
+  mortgage: number;
+  annualCostsY1: number;
+}
+
+export interface MortgageYear {
+  endBalance: number;
+  yearInterest: number;
+  yearPrincipal: number;
+  avgBalance: number;
+}
+
+export interface SaleOutcome {
+  saleProceeds: number;
+  taxableGain: number;
+  capitalGainsTax: number;
+  buyerNW: number;
+}
+
+export interface SimulationResult extends SaleOutcome {
+  renterNW: number;
+  homeVal: number;
+  balance: number;
+}
+
+export const DEFAULTS: CalculatorParams = {
   homePrice: 700000,       // 2026 Ridgewood NJ median ~$900K–$1.5M
   downPct: 0.20,
   closingPct: 0.03,
@@ -20,7 +87,7 @@ export const DEFAULTS = {
   homeSaleGainExclusion: 500000,
 };
 
-export const REGIONS = [
+export const REGIONS: RegionPreset[] = [
   { name: "Ridgewood (Bergen)", homePrice: 900000, propertyTaxRate: 0.0289, homeAppreciation: 0.05 },
   { name: "Tenafly (Bergen)", homePrice: 1200000, propertyTaxRate: 0.0260, homeAppreciation: 0.05 },
   { name: "Paramus (Bergen)", homePrice: 850000, propertyTaxRate: 0.0145, homeAppreciation: 0.045 },
@@ -40,7 +107,7 @@ export function calcTaxBenefit({
   marginalTaxRate,
   standardDeduction,
   saltCap,
-}) {
+}: TaxBenefitInput): number {
   const deductibleInterestRatio = avgBalance > 0
     ? Math.min(1, mortgageInterestLimit / avgBalance)
     : 0;
@@ -52,7 +119,7 @@ export function calcTaxBenefit({
   return excess * marginalTaxRate;
 }
 
-export function deriveParams(params) {
+export function deriveParams(params: CalculatorParams): DerivedParams {
   const downPayment = params.homePrice * params.downPct;
   const closingCost = params.homePrice * params.closingPct;
   const mortgage = params.homePrice - downPayment;
@@ -61,12 +128,12 @@ export function deriveParams(params) {
   return { ...params, downPayment, closingCost, mortgage, annualCostsY1 };
 }
 
-export function monthlyPmt(principal, rate, months) {
+export function monthlyPmt(principal: number, rate: number, months: number): number {
   const monthlyRate = rate / 12;
   return principal * (monthlyRate * Math.pow(1 + monthlyRate, months)) / (Math.pow(1 + monthlyRate, months) - 1);
 }
 
-export function amortizeYear(balance, rate, monthlyPayment) {
+export function amortizeYear(balance: number, rate: number, monthlyPayment: number): MortgageYear {
   let nextBalance = balance;
   let yearInterest = 0;
   let balanceSum = 0;
@@ -86,7 +153,12 @@ export function amortizeYear(balance, rate, monthlyPayment) {
   };
 }
 
-export function calcSaleOutcome(params, holdYears, homeVal, balance) {
+export function calcSaleOutcome(
+  params: CalculatorParams,
+  holdYears: number,
+  homeVal: number,
+  balance: number,
+): SaleOutcome {
   const saleProceeds = homeVal * (1 - params.sellingCostPct);
   const exclusion = holdYears >= 2 ? params.homeSaleGainExclusion : 0;
   const taxableGain = Math.max(0, saleProceeds - params.homePrice - exclusion);
@@ -96,7 +168,7 @@ export function calcSaleOutcome(params, holdYears, homeVal, balance) {
   return { saleProceeds, taxableGain, capitalGainsTax, buyerNW };
 }
 
-export function simulate(params, holdYears, startRent) {
+export function simulate(params: DerivedParams, holdYears: number, startRent: number): SimulationResult {
   const monthlyPayment = monthlyPmt(params.mortgage, params.mortgageRate, 360);
   const annualMtg = monthlyPayment * 12;
   let balance = params.mortgage;
@@ -141,7 +213,7 @@ export function simulate(params, holdYears, startRent) {
   };
 }
 
-export function findBE(params, holdYears) {
+export function findBE(params: DerivedParams, holdYears: number): number {
   let lo = 0;
   let hi = Math.max(20000, params.homePrice / 48);
 
@@ -155,7 +227,7 @@ export function findBE(params, holdYears) {
   return (lo + hi) / 2;
 }
 
-export function findBEnoInfl(params, holdYears) {
+export function findBEnoInfl(params: DerivedParams, holdYears: number): number {
   const monthlyPayment = monthlyPmt(params.mortgage, params.mortgageRate, 360);
   const annualMtg = monthlyPayment * 12;
   const year1Mortgage = amortizeYear(params.mortgage, params.mortgageRate, monthlyPayment);

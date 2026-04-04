@@ -1,9 +1,12 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import {
   DEFAULTS,
   REGIONS,
   amortizeYear,
   calcTaxBenefit,
+  type CalculatorParams,
+  type DerivedParams,
+  type RegionPreset,
   deriveParams,
   findBE,
   findBEnoInfl,
@@ -11,10 +14,33 @@ import {
   simulate,
 } from "./calculator";
 
-function fmt(n) { return "$" + Math.round(n).toLocaleString("en-US"); }
-function pct(n) { return (n * 100).toFixed(1) + "%"; }
+function fmt(n: number): string { return "$" + Math.round(n).toLocaleString("en-US"); }
+function pct(n: number): string { return (n * 100).toFixed(1) + "%"; }
 
-const sliderDefs = [
+type SliderKey =
+  | "downPct"
+  | "mortgageRate"
+  | "propertyTaxRate"
+  | "insuranceY1"
+  | "maintenanceY1"
+  | "stateIncomeTaxY1"
+  | "homeAppreciation"
+  | "investReturn"
+  | "costGrowth"
+  | "rentGrowth"
+  | "sellingCostPct"
+  | "capitalGainsTaxRate";
+
+interface SliderDef {
+  key: SliderKey;
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  format: (value: number) => string;
+}
+
+const sliderDefs: SliderDef[] = [
   { key: "downPct", label: "다운페이먼트", min: 0.20, max: 0.40, step: 0.01, format: pct },
   { key: "mortgageRate", label: "모기지 금리", min: 0.03, max: 0.09, step: 0.001, format: pct },
   { key: "propertyTaxRate", label: "재산세율", min: 0.01, max: 0.04, step: 0.001, format: pct },
@@ -29,31 +55,33 @@ const sliderDefs = [
   { key: "capitalGainsTaxRate", label: "양도차익세율", min: 0.10, max: 0.30, step: 0.001, format: pct },
 ];
 
-const sliderTrack = {
+const sliderTrack: CSSProperties = {
   WebkitAppearance: "none", appearance: "none", width: "100%", height: 4, borderRadius: 2,
   background: "#1e2430", outline: "none", cursor: "pointer",
 };
 
-const hdr = { fontSize: 10, color: "#4b5363", padding: "6px 0", borderBottom: "1px solid #1e2430" };
-const cell = { fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "7px 0", borderBottom: "1px solid #1a1f26", color: "#9ca3b0" };
+const hdr: CSSProperties = { fontSize: 10, color: "#4b5363", padding: "6px 0", borderBottom: "1px solid #1e2430" };
+const cell: CSSProperties = { fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "7px 0", borderBottom: "1px solid #1a1f26", color: "#9ca3b0" };
 
 export default function App() {
-  const [params, setParams] = useState(DEFAULTS);
-  const [hy, setHy] = useState(7);
-  const [currentRent, setCurrentRent] = useState(4000);
+  const [params, setParams] = useState<CalculatorParams>(DEFAULTS);
+  const [hy, setHy] = useState<number>(7);
+  const [currentRent, setCurrentRent] = useState<number>(4000);
   const [showSliders, setShowSliders] = useState(false);
   const [showCashFlow, setShowCashFlow] = useState(false);
-  const [activeRegion, setActiveRegion] = useState(null);
+  const [activeRegion, setActiveRegion] = useState<string | null>(null);
 
-  const baseParams = useMemo(() => {
+  const baseParams = useMemo<CalculatorParams>(() => {
     if (!activeRegion) return DEFAULTS;
     const reg = REGIONS.find(r => r.name === activeRegion);
-    return reg ? { ...DEFAULTS, homePrice: reg.homePrice, propertyTaxRate: reg.propertyTaxRate, homeAppreciation: reg.homeAppreciation } : DEFAULTS;
+    return reg
+      ? { ...DEFAULTS, homePrice: reg.homePrice, propertyTaxRate: reg.propertyTaxRate, homeAppreciation: reg.homeAppreciation }
+      : DEFAULTS;
   }, [activeRegion]);
 
-  const P = useMemo(() => deriveParams(params), [params]);
+  const P = useMemo<DerivedParams>(() => deriveParams(params), [params]);
 
-  const applyRegion = (reg) => {
+  const applyRegion = (reg: RegionPreset) => {
     setActiveRegion(reg.name);
     setParams(prev => ({
       ...prev,
@@ -63,7 +91,7 @@ export default function App() {
     }));
   };
 
-  const setP = (key, val) => {
+  const setP = (key: keyof CalculatorParams, val: number) => {
     setParams(prev => ({
       ...prev,
       [key]: key === "downPct" ? Math.max(0.20, val) : val,
@@ -82,7 +110,7 @@ export default function App() {
   const annualMtg = mp * 12;
 
   const details = useMemo(() => {
-    const d = [];
+    const d: Array<{ year: number; bOut: number; bPrin: number; rOut: number; mRent: number; costs: number }> = [];
     let bal = P.mortgage;
     for (let y = 1; y <= hy; y++) {
       const yearMortgage = amortizeYear(bal, P.mortgageRate, mp);
@@ -243,8 +271,9 @@ export default function App() {
 
         {/* ALL YEARS CHART */}
         {(() => {
+          type ChartDatum = { y: number; r: number; rni: number };
           const chartYrs = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 18, 20];
-          const chartData = chartYrs.map(y => ({ y, r: findBE(P, y), rni: findBEnoInfl(P, y) }));
+          const chartData: ChartDatum[] = chartYrs.map(y => ({ y, r: findBE(P, y), rni: findBEnoInfl(P, y) }));
           const allVals = chartData.flatMap(d => [d.r, d.rni]);
           const minV = Math.floor(Math.min(...allVals) / 500) * 500;
           const maxV = Math.ceil(Math.max(...allVals) / 500) * 500;
@@ -252,12 +281,13 @@ export default function App() {
 
           const W = 600, H = 260, pad = { t: 20, r: 20, b: 36, l: 56 };
           const cw = W - pad.l - pad.r, ch = H - pad.t - pad.b;
-          const xOf = (yr) => pad.l + ((yr - 1) / 19) * cw;
-          const yOf = (v) => pad.t + (1 - (v - minV) / range) * ch;
+          const xOf = (yr: number) => pad.l + ((yr - 1) / 19) * cw;
+          const yOf = (v: number) => pad.t + (1 - (v - minV) / range) * ch;
 
-          const makePath = (key) => chartData.map((d, i) =>
+          const makePath = (key: keyof Pick<ChartDatum, "r" | "rni">) => chartData.map((d, i) =>
             `${i === 0 ? "M" : "L"}${xOf(d.y).toFixed(1)},${yOf(d[key]).toFixed(1)}`
           ).join(" ");
+          const lastDatum = chartData[chartData.length - 1]!;
 
           const gridLines = [];
           const step = range <= 3000 ? 500 : 1000;
@@ -290,7 +320,7 @@ export default function App() {
                 <path d={makePath("rni")} fill="none" stroke="#555d6b" strokeWidth="1.5" strokeDasharray="6,4" />
                 <path d={makePath("r")} fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                 {/* area fill */}
-                <path d={`${makePath("r")} L${xOf(chartData[chartData.length-1].y)},${yOf(minV)} L${xOf(1)},${yOf(minV)} Z`} fill="url(#areaGrad)" />
+                <path d={`${makePath("r")} L${xOf(lastDatum.y)},${yOf(minV)} L${xOf(1)},${yOf(minV)} Z`} fill="url(#areaGrad)" />
                 <defs>
                   <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.15" />

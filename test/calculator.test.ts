@@ -11,9 +11,9 @@ import {
   findBEnoInfl,
   monthlyPmt,
   simulate,
-} from "../src/calculator.js";
+} from "../src/calculator.ts";
 
-function assertClose(actual, expected, tolerance = 1e-6) {
+function assertClose(actual: number, expected: number, tolerance = 1e-6): void {
   assert.ok(
     Math.abs(actual - expected) <= tolerance,
     `Expected ${actual} to be within ${tolerance} of ${expected}`,
