@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 
 const DEFAULTS = {
-  homePrice: 900000,       // 2026 Ridgewood NJ median ~$900K–$1.5M
+  homePrice: 700000,       // 2026 Ridgewood NJ median ~$900K–$1.5M
   downPct: 0.20,
   closingPct: 0.03,
   mortgageRate: 0.065,     // 2026.04 30yr fixed: 6.23%–6.51%
