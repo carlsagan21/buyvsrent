@@ -209,6 +209,7 @@ export default function App() {
   const [hy, setHy] = useState(7);
   const [currentRent, setCurrentRent] = useState(4000);
   const [showSliders, setShowSliders] = useState(false);
+  const [showCashFlow, setShowCashFlow] = useState(false);
   const [activeRegion, setActiveRegion] = useState(null);
   const yrs = [3, 5, 7, 10, 15, 20];
 
@@ -508,33 +509,45 @@ export default function App() {
 
         {/* CASH FLOW YEAR BY YEAR */}
         <div style={{ background: "#111318", border: "1px solid #1e2430", borderRadius: 10, padding: "16px 18px", marginBottom: 20 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "#4a9eff", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 12 }}>
-            연도별 현금 흐름 (1년차 월세 {fmt(currentRent)} 기준)
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: showCashFlow ? 14 : 0 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#4a9eff", textTransform: "uppercase", letterSpacing: 1.2 }}>
+              연도별 현금 흐름 (1년차 월세 {fmt(currentRent)} 기준)
+            </div>
+            <button onClick={() => setShowCashFlow(!showCashFlow)} style={{
+              background: showCashFlow ? "#1d4ed8" : "#151920", border: "none", borderRadius: 5,
+              padding: "4px 10px", color: showCashFlow ? "#fff" : "#6b7280", fontSize: 11,
+              cursor: "pointer", fontWeight: 500,
+            }}>{showCashFlow ? "접기" : "자세히 보기"}</button>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "30px 1.1fr 0.9fr 1.1fr 74px", gap: 0 }}>
-            <div style={hdr}>년</div>
-            <div style={{ ...hdr, textAlign: "right" }}>매수 연지출</div>
-            <div style={{ ...hdr, textAlign: "right", color: "#6b7280" }}>(원금 상환)</div>
-            <div style={{ ...hdr, textAlign: "right" }}>렌트 연지출</div>
-            <div style={{ ...hdr, textAlign: "right" }}>월 렌트</div>
-            {details.filter((_, i) => hy <= 10 || i % 2 === 0 || i === details.length - 1).map(d => (
-              <div key={d.year} style={{ display: "contents" }}>
-                <div style={cell}>{d.year}</div>
-                <div style={{ ...cell, textAlign: "right", color: "#f87171" }}>{fmt(d.bOut)}</div>
-                <div style={{ ...cell, textAlign: "right", color: "#6b7280" }}>{fmt(d.bPrin)}</div>
-                <div style={{ ...cell, textAlign: "right", color: "#4ade80" }}>{fmt(d.rOut)}</div>
-                <div style={{ ...cell, textAlign: "right", color: "#8b949e" }}>{fmt(d.mRent)}/mo</div>
+
+          {showCashFlow && (
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "30px 1.1fr 0.9fr 1.1fr 74px", gap: 0 }}>
+                <div style={hdr}>년</div>
+                <div style={{ ...hdr, textAlign: "right" }}>매수 연지출</div>
+                <div style={{ ...hdr, textAlign: "right", color: "#6b7280" }}>(원금 상환)</div>
+                <div style={{ ...hdr, textAlign: "right" }}>렌트 연지출</div>
+                <div style={{ ...hdr, textAlign: "right" }}>월 렌트</div>
+                {details.filter((_, i) => hy <= 10 || i % 2 === 0 || i === details.length - 1).map(d => (
+                  <div key={d.year} style={{ display: "contents" }}>
+                    <div style={cell}>{d.year}</div>
+                    <div style={{ ...cell, textAlign: "right", color: "#f87171" }}>{fmt(d.bOut)}</div>
+                    <div style={{ ...cell, textAlign: "right", color: "#6b7280" }}>{fmt(d.bPrin)}</div>
+                    <div style={{ ...cell, textAlign: "right", color: "#4ade80" }}>{fmt(d.rOut)}</div>
+                    <div style={{ ...cell, textAlign: "right", color: "#8b949e" }}>{fmt(d.mRent)}/mo</div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          <div style={{ fontSize: 11, color: "#4b5363", marginTop: 10, lineHeight: 1.6 }}>
-            모기지 P+I ({fmt(Math.round(annualMtg))}/yr)는 고정이지만 유지비는 매년 ↑<br />
-            렌트도 매년 {pct(P.rentGrowth)} ↑ → 장기 거주 시 매수 지출과 렌트 지출의 격차가 줄어듭니다.<br />
-            <span style={{ color: "#9ca3b0", display: "inline-block", marginTop: 4 }}>
-              💡 <strong>왜 매년 돈이 더 많이 나가는데 매수가 유리하다고 나오나요?</strong><br />
-              매수 연지출에는 은행에 내는 <strong>모기지 원금(순자산으로 100% 쌓임)</strong>이 포함되어 있습니다. 또한, 내 집 마련 시 매년 발생하는 <strong>부동산 가치 상승분(레버리지 효과)</strong>이 당장의 높은 월 지출액을 압도적으로 상쇄하기 때문입니다.
-            </span>
-          </div>
+              <div style={{ fontSize: 11, color: "#4b5363", marginTop: 10, lineHeight: 1.6 }}>
+                모기지 P+I ({fmt(Math.round(annualMtg))}/yr)는 고정이지만 유지비는 매년 ↑<br />
+                렌트도 매년 {pct(P.rentGrowth)} ↑ → 장기 거주 시 매수 지출과 렌트 지출의 격차가 줄어듭니다.<br />
+                <span style={{ color: "#9ca3b0", display: "inline-block", marginTop: 4 }}>
+                  💡 <strong>왜 매년 돈이 더 많이 나가는데 매수가 유리하다고 나오나요?</strong><br />
+                  매수 연지출에는 은행에 내는 <strong>모기지 원금(순자산으로 100% 쌓임)</strong>이 포함되어 있습니다. 또한, 내 집 마련 시 매년 발생하는 <strong>부동산 가치 상승분(레버리지 효과)</strong>이 당장의 높은 월 지출액을 압도적으로 상쇄하기 때문입니다.
+                </span>
+              </div>
+            </>
+          )}
         </div>
 
 
