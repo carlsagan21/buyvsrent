@@ -212,6 +212,12 @@ export default function App() {
   const [activeRegion, setActiveRegion] = useState(null);
   const yrs = [3, 5, 7, 10, 15, 20];
 
+  const baseParams = useMemo(() => {
+    if (!activeRegion) return DEFAULTS;
+    const reg = REGIONS.find(r => r.name === activeRegion);
+    return reg ? { ...DEFAULTS, homePrice: reg.homePrice, propertyTaxRate: reg.propertyTaxRate, homeAppreciation: reg.homeAppreciation } : DEFAULTS;
+  }, [activeRegion]);
+
   const P = useMemo(() => derive(params), [params]);
 
   const applyRegion = (reg) => {
@@ -276,7 +282,7 @@ export default function App() {
     return { rent: r, bNW: buyerNW, rNW: renterNW };
   }), [P, hy]);
 
-  const isDefault = JSON.stringify(params) === JSON.stringify(DEFAULTS);
+  const isDefault = JSON.stringify(params) === JSON.stringify(baseParams);
 
   return (
     <div style={{ background: "#0b0e13", color: "#c9d1d9", minHeight: "100vh", fontFamily: "'DM Sans', sans-serif", padding: "20px 12px" }}>
@@ -303,7 +309,7 @@ export default function App() {
 
         <div style={{ textAlign: "center", marginBottom: 24 }}>
           <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: "#e6edf3" }}>Buy vs Rent 계산기</h1>
-          <p style={{ color: "#4b5363", fontSize: 12, marginTop: 6 }}>{activeRegion ? `${activeRegion} 기준` : "커스텀 설정"} · 인플레이션 & 매도수수료 반영</p>
+          <p style={{ color: "#4b5363", fontSize: 12, marginTop: 6 }}>{activeRegion ? `${activeRegion} 기준 · ` : ""}인플레이션 & 매도수수료 반영</p>
         </div>
 
         {/* REGION PRESETS */}
@@ -566,7 +572,7 @@ export default function App() {
             <div style={{ fontSize: 11, fontWeight: 600, color: "#4a9eff", textTransform: "uppercase", letterSpacing: 1.2 }}>전제 조건</div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               {!isDefault && (
-                <button onClick={() => setParams(DEFAULTS)} style={{
+                <button onClick={() => setParams(baseParams)} style={{
                   background: "none", border: "1px solid #333", borderRadius: 5, padding: "3px 8px",
                   color: "#6b7280", fontSize: 11, cursor: "pointer",
                 }}>초기화</button>
@@ -584,7 +590,7 @@ export default function App() {
                 <div key={key}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                     <span style={{ fontSize: 12, color: "#6b7280" }}>{label}</span>
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: params[key] !== DEFAULTS[key] ? "#4a9eff" : "#9ca3b0", fontWeight: 600 }}>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: params[key] !== baseParams[key] ? "#4a9eff" : "#9ca3b0", fontWeight: 600 }}>
                       {format(params[key])}
                     </span>
                   </div>
