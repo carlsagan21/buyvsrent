@@ -163,7 +163,7 @@ export default function App() {
 
         <div style={{ textAlign: "center", marginBottom: 24 }}>
           <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: "#e6edf3" }}>Buy vs Rent 계산기</h1>
-          <p style={{ color: "#4b5363", fontSize: 12, marginTop: 6 }}>{activeRegion ? `${activeRegion} 기준 · ` : ""}인플레이션 & 매도수수료 반영</p>
+          <p style={{ color: "#4b5363", fontSize: 12, marginTop: 6 }}>세금·매도비용·투자수익까지 반영한 실질 비교</p>
         </div>
 
         {/* REGION PRESETS */}
