@@ -22,6 +22,17 @@ const DEFAULTS = {
   homeSaleGainExclusion: 500000,
 };
 
+const REGIONS = [
+  { name: "Ridgewood (Bergen)", homePrice: 900000, propertyTaxRate: 0.0289, homeAppreciation: 0.05 },
+  { name: "Tenafly (Bergen)", homePrice: 1200000, propertyTaxRate: 0.0260, homeAppreciation: 0.05 },
+  { name: "Paramus (Bergen)", homePrice: 850000, propertyTaxRate: 0.0145, homeAppreciation: 0.045 },
+  { name: "Fort Lee (Bergen)", homePrice: 650000, propertyTaxRate: 0.0230, homeAppreciation: 0.045 },
+  { name: "Millburn (Essex)", homePrice: 1500000, propertyTaxRate: 0.0195, homeAppreciation: 0.045 },
+  { name: "Montclair (Essex)", homePrice: 1000000, propertyTaxRate: 0.0315, homeAppreciation: 0.05 },
+  { name: "Jersey City (Hudson)", homePrice: 850000, propertyTaxRate: 0.0165, homeAppreciation: 0.04 },
+  { name: "Princeton (Mercer)", homePrice: 950000, propertyTaxRate: 0.0245, homeAppreciation: 0.045 },
+];
+
 function calcTaxBenefit({
   yearlyInterest,
   avgBalance,
@@ -198,14 +209,28 @@ export default function App() {
   const [hy, setHy] = useState(7);
   const [currentRent, setCurrentRent] = useState(4000);
   const [showSliders, setShowSliders] = useState(false);
+  const [activeRegion, setActiveRegion] = useState(null);
   const yrs = [3, 5, 7, 10, 15, 20];
 
   const P = useMemo(() => derive(params), [params]);
 
-  const setP = (key, val) => setParams(prev => ({
-    ...prev,
-    [key]: key === "downPct" ? Math.max(0.20, val) : val,
-  }));
+  const applyRegion = (reg) => {
+    setActiveRegion(reg.name);
+    setParams(prev => ({
+      ...prev,
+      homePrice: reg.homePrice,
+      propertyTaxRate: reg.propertyTaxRate,
+      homeAppreciation: reg.homeAppreciation,
+    }));
+  };
+
+  const setP = (key, val) => {
+    setParams(prev => ({
+      ...prev,
+      [key]: key === "downPct" ? Math.max(0.20, val) : val,
+    }));
+    setActiveRegion(null);
+  };
 
   const allBE = useMemo(() => yrs.map(y => ({ y, r: findBE(P, y), rni: findBEnoInfl(P, y) })), [P]);
   const be = useMemo(() => findBE(P, hy), [P, hy]);
@@ -278,7 +303,25 @@ export default function App() {
 
         <div style={{ textAlign: "center", marginBottom: 24 }}>
           <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: "#e6edf3" }}>Buy vs Rent 계산기</h1>
-          <p style={{ color: "#4b5363", fontSize: 12, marginTop: 6 }}>Ridgewood, NJ · 인플레이션 & 매도수수료 반영</p>
+          <p style={{ color: "#4b5363", fontSize: 12, marginTop: 6 }}>{activeRegion ? `${activeRegion} 기준` : "커스텀 설정"} · 인플레이션 & 매도수수료 반영</p>
+        </div>
+
+        {/* REGION PRESETS */}
+        <div style={{ marginBottom: 16 }}>
+          <style>{`.region-scroll::-webkit-scrollbar { display: none; }`}</style>
+          <div className="region-scroll" style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 8, msOverflowStyle: "none", scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}>
+            {REGIONS.map(reg => (
+              <button key={reg.name} onClick={() => applyRegion(reg)} style={{
+                background: activeRegion === reg.name ? "#1d4ed8" : "#111318",
+                border: activeRegion === reg.name ? "1px solid #3b82f6" : "1px solid #1e2430",
+                color: activeRegion === reg.name ? "#fff" : "#8b949e",
+                padding: "8px 14px", borderRadius: 20, fontSize: 12, fontWeight: 500, cursor: "pointer",
+                transition: "all 0.2s ease", flexShrink: 0,
+              }}>
+                {reg.name}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* PRIMARY INPUT: 현재 월세 + 집값 */}
