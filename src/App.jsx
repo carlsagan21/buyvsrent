@@ -9,19 +9,35 @@ const DEFAULTS = {
   insuranceY1: 1800,       // NJ 평균 주택 보험
   maintenanceY1: 9000,     // 수선비 (~1% of home value)
   marginalTaxRate: 0.24,   // MFJ $300K 연방 한계세율
-  standardDeduction: 30000,// MFJ 표준공제
-  saltCap: 10000,          // SALT 공제 한도
+  stateIncomeTaxY1: 14000, // NJ 주 소득세 추정치 (MFJ $300K 가정)
+  standardDeduction: 32200,// 2026 MFJ 표준공제
+  saltCap: 40000,          // 2026 SALT 공제 한도 (phaseout 전)
+  mortgageInterestLimit: 750000,
   homeAppreciation: 0.05,  // Ridgewood NJ 10년 평균 ~5.0% (Zillow ZHVI)
   investReturn: 0.08,      // S&P 500 명목 CAGR ~9.5%, 배당세·보수적 마진 차감
   costGrowth: 0.035,
   rentGrowth: 0.03,
   sellingCostPct: 0.05,    // NAR 합의 이후 4%–6%, 5% 적용
+  capitalGainsTaxRate: 0.188, // 장기자본이득세 15% + NIIT 3.8% 가정
+  homeSaleGainExclusion: 500000,
 };
 
-// 매년 실제 이자 기반 세제혜택 계산
-function calcTaxBenefit(yearlyInterest, propertyTax, marginalTaxRate, standardDeduction, saltCap) {
-  const saltDeduction = Math.min(propertyTax, saltCap);
-  const itemized = yearlyInterest + saltDeduction;
+function calcTaxBenefit({
+  yearlyInterest,
+  avgBalance,
+  propertyTax,
+  stateIncomeTax,
+  mortgageInterestLimit,
+  marginalTaxRate,
+  standardDeduction,
+  saltCap,
+}) {
+  const deductibleInterestRatio = avgBalance > 0
+    ? Math.min(1, mortgageInterestLimit / avgBalance)
+    : 0;
+  const deductibleInterest = yearlyInterest * deductibleInterestRatio;
+  const saltDeduction = Math.min(propertyTax + stateIncomeTax, saltCap);
+  const itemized = deductibleInterest + saltDeduction;
   const excess = Math.max(0, itemized - standardDeduction);
   return excess * marginalTaxRate;
 }
@@ -42,6 +58,31 @@ function monthlyPmt(principal, rate, months) {
   return principal * (r * Math.pow(1 + r, months)) / (Math.pow(1 + r, months) - 1);
 }
 
+function amortizeYear(balance, rate, monthlyPayment) {
+  let nextBalance = balance;
+  let yearInterest = 0;
+  let balanceSum = 0;
+
+  for (let m = 0; m < 12; m++) {
+    balanceSum += nextBalance;
+    const monthlyInterest = nextBalance * (rate / 12);
+    yearInterest += monthlyInterest;
+    nextBalance -= (monthlyPayment - monthlyInterest);
+  }
+
+  return { endBalance: nextBalance, yearInterest, avgBalance: balanceSum / 12 };
+}
+
+function calcSaleOutcome(P, holdYears, homeVal, balance) {
+  const saleProceeds = homeVal * (1 - P.sellingCostPct);
+  const exclusion = holdYears >= 2 ? P.homeSaleGainExclusion : 0;
+  const taxableGain = Math.max(0, saleProceeds - P.homePrice - exclusion);
+  const capitalGainsTax = taxableGain * P.capitalGainsTaxRate;
+  const buyerNW = saleProceeds - capitalGainsTax - Math.max(0, balance);
+
+  return { saleProceeds, taxableGain, capitalGainsTax, buyerNW };
+}
+
 function simulate(P, holdYears, startRent) {
   const mp = monthlyPmt(P.mortgage, P.mortgageRate, 360);
   const annualMtg = mp * 12;
@@ -49,15 +90,20 @@ function simulate(P, holdYears, startRent) {
   let renterInv = P.downPayment + P.closingCost;
 
   for (let y = 1; y <= holdYears; y++) {
-    // 해당 연도 이자 계산 (세제혜택용)
-    let yearInterest = 0;
-    for (let m = 0; m < 12; m++) {
-      const mi = balance * (P.mortgageRate / 12);
-      yearInterest += mi;
-      balance -= (mp - mi);
-    }
+    const yearMortgage = amortizeYear(balance, P.mortgageRate, mp);
+    balance = yearMortgage.endBalance;
     const propertyTax = P.homePrice * P.propertyTaxRate * Math.pow(1 + P.costGrowth, y - 1);
-    const taxBenefit = calcTaxBenefit(yearInterest, propertyTax, P.marginalTaxRate, P.standardDeduction, P.saltCap);
+    const stateIncomeTax = P.stateIncomeTaxY1 * Math.pow(1 + P.costGrowth, y - 1);
+    const taxBenefit = calcTaxBenefit({
+      yearlyInterest: yearMortgage.yearInterest,
+      avgBalance: yearMortgage.avgBalance,
+      propertyTax,
+      stateIncomeTax,
+      mortgageInterestLimit: P.mortgageInterestLimit,
+      marginalTaxRate: P.marginalTaxRate,
+      standardDeduction: P.standardDeduction,
+      saltCap: P.saltCap,
+    });
 
     const costs = P.annualCostsY1 * Math.pow(1 + P.costGrowth, y - 1);
     const buyerOut = annualMtg + costs - taxBenefit;
@@ -68,8 +114,16 @@ function simulate(P, holdYears, startRent) {
   }
 
   const hv = P.homePrice * Math.pow(1 + P.homeAppreciation, holdYears);
-  const buyerNW = hv * (1 - P.sellingCostPct) - Math.max(0, balance);
-  return { buyerNW, renterNW: renterInv, homeVal: hv, balance: Math.max(0, balance) };
+  const sale = calcSaleOutcome(P, holdYears, hv, balance);
+  return {
+    buyerNW: sale.buyerNW,
+    renterNW: renterInv,
+    homeVal: hv,
+    balance: Math.max(0, balance),
+    taxableGain: sale.taxableGain,
+    capitalGainsTax: sale.capitalGainsTax,
+    saleProceeds: sale.saleProceeds,
+  };
 }
 
 function findBE(P, holdYears) {
@@ -85,10 +139,18 @@ function findBE(P, holdYears) {
 function findBEnoInfl(P, holdYears) {
   const mp = monthlyPmt(P.mortgage, P.mortgageRate, 360);
   const annualMtg = mp * 12;
-  // 인플레 미반영: 1년차 이자 기준 고정 세제혜택
-  const year1Interest = P.mortgage * P.mortgageRate;
+  const year1Mortgage = amortizeYear(P.mortgage, P.mortgageRate, mp);
   const year1PropTax = P.homePrice * P.propertyTaxRate;
-  const fixedTaxBenefit = calcTaxBenefit(year1Interest, year1PropTax, P.marginalTaxRate, P.standardDeduction, P.saltCap);
+  const fixedTaxBenefit = calcTaxBenefit({
+    yearlyInterest: year1Mortgage.yearInterest,
+    avgBalance: year1Mortgage.avgBalance,
+    propertyTax: year1PropTax,
+    stateIncomeTax: P.stateIncomeTaxY1,
+    mortgageInterestLimit: P.mortgageInterestLimit,
+    marginalTaxRate: P.marginalTaxRate,
+    standardDeduction: P.standardDeduction,
+    saltCap: P.saltCap,
+  });
   const buyerOut = annualMtg + P.annualCostsY1 - fixedTaxBenefit;
 
   let lo = 0, hi = Math.max(20000, P.homePrice / 48);
@@ -99,13 +161,10 @@ function findBEnoInfl(P, holdYears) {
     for (let y = 1; y <= holdYears; y++) {
       const investGain = renterInv > 0 ? renterInv * P.investReturn : 0;
       renterInv = renterInv + investGain + (buyerOut - mid * 12);
-      for (let m = 0; m < 12; m++) {
-        const mi = balance * (P.mortgageRate / 12);
-        balance -= (mp - mi);
-      }
+      balance = amortizeYear(balance, P.mortgageRate, mp).endBalance;
     }
     const hv = P.homePrice * Math.pow(1 + P.homeAppreciation, holdYears);
-    const bNW = hv * (1 - P.sellingCostPct) - Math.max(0, balance);
+    const bNW = calcSaleOutcome(P, holdYears, hv, balance).buyerNW;
     if (renterInv > bNW) lo = mid; else hi = mid;
   }
   return (lo + hi) / 2;
@@ -113,16 +172,18 @@ function findBEnoInfl(P, holdYears) {
 
 const sliderDefs = [
   { key: "homePrice", label: "집값", min: 500000, max: 2000000, step: 10000, format: fmt },
-  { key: "downPct", label: "다운페이먼트", min: 0.05, max: 0.40, step: 0.01, format: pct },
+  { key: "downPct", label: "다운페이먼트", min: 0.20, max: 0.40, step: 0.01, format: pct },
   { key: "mortgageRate", label: "모기지 금리", min: 0.03, max: 0.09, step: 0.001, format: pct },
   { key: "propertyTaxRate", label: "재산세율", min: 0.01, max: 0.04, step: 0.001, format: pct },
   { key: "insuranceY1", label: "주택 보험 (연)", min: 500, max: 5000, step: 100, format: fmt },
   { key: "maintenanceY1", label: "수선비 (연)", min: 2000, max: 20000, step: 500, format: fmt },
+  { key: "stateIncomeTaxY1", label: "주 소득세 (연)", min: 0, max: 30000, step: 500, format: fmt },
   { key: "homeAppreciation", label: "집값 상승률", min: 0.01, max: 0.08, step: 0.005, format: pct },
   { key: "investReturn", label: "투자 수익률 (명목)", min: 0.04, max: 0.12, step: 0.005, format: pct },
   { key: "costGrowth", label: "유지비 상승률", min: 0.01, max: 0.06, step: 0.005, format: pct },
   { key: "rentGrowth", label: "렌트 상승률", min: 0.01, max: 0.06, step: 0.005, format: pct },
   { key: "sellingCostPct", label: "매도 수수료", min: 0.02, max: 0.08, step: 0.005, format: pct },
+  { key: "capitalGainsTaxRate", label: "양도차익세율", min: 0.10, max: 0.30, step: 0.001, format: pct },
 ];
 
 const sliderTrack = {
@@ -136,16 +197,25 @@ const cell = { fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding:
 export default function App() {
   const [params, setParams] = useState(DEFAULTS);
   const [hy, setHy] = useState(7);
+  const [currentRent, setCurrentRent] = useState(3500);
   const [showSliders, setShowSliders] = useState(false);
   const yrs = [3, 5, 7, 10, 15, 20];
 
   const P = useMemo(() => derive(params), [params]);
 
-  const setP = (key, val) => setParams(prev => ({ ...prev, [key]: val }));
+  const setP = (key, val) => setParams(prev => ({
+    ...prev,
+    [key]: key === "downPct" ? Math.max(0.20, val) : val,
+  }));
 
   const allBE = useMemo(() => yrs.map(y => ({ y, r: findBE(P, y), rni: findBEnoInfl(P, y) })), [P]);
   const be = useMemo(() => findBE(P, hy), [P, hy]);
   const beNI = useMemo(() => findBEnoInfl(P, hy), [P, hy]);
+
+  // 핵심: 현재 월세로 시뮬레이션
+  const result = useMemo(() => simulate(P, hy, currentRent), [P, hy, currentRent]);
+  const diff = result.buyerNW - result.renterNW;
+  const buyWins = diff > 0;
 
   const mp = monthlyPmt(P.mortgage, P.mortgageRate, 360);
   const annualMtg = mp * 12;
@@ -154,17 +224,27 @@ export default function App() {
     const d = [];
     let bal = P.mortgage;
     for (let y = 1; y <= hy; y++) {
-      let yearInterest = 0;
-      for (let m = 0; m < 12; m++) { const mi = bal * (P.mortgageRate / 12); yearInterest += mi; bal -= (mp - mi); }
+      const yearMortgage = amortizeYear(bal, P.mortgageRate, mp);
+      bal = yearMortgage.endBalance;
       const propTax = P.homePrice * P.propertyTaxRate * Math.pow(1 + P.costGrowth, y - 1);
-      const taxBen = calcTaxBenefit(yearInterest, propTax, P.marginalTaxRate, P.standardDeduction, P.saltCap);
+      const stateIncomeTax = P.stateIncomeTaxY1 * Math.pow(1 + P.costGrowth, y - 1);
+      const taxBen = calcTaxBenefit({
+        yearlyInterest: yearMortgage.yearInterest,
+        avgBalance: yearMortgage.avgBalance,
+        propertyTax: propTax,
+        stateIncomeTax,
+        mortgageInterestLimit: P.mortgageInterestLimit,
+        marginalTaxRate: P.marginalTaxRate,
+        standardDeduction: P.standardDeduction,
+        saltCap: P.saltCap,
+      });
       const costs = P.annualCostsY1 * Math.pow(1 + P.costGrowth, y - 1);
       const bOut = annualMtg + costs - taxBen;
-      const rOut = be * 12 * Math.pow(1 + P.rentGrowth, y - 1);
-      d.push({ year: y, bOut: Math.round(bOut), rOut: Math.round(rOut), mRent: Math.round(be * Math.pow(1 + P.rentGrowth, y - 1)), costs: Math.round(costs) });
+      const rOut = currentRent * 12 * Math.pow(1 + P.rentGrowth, y - 1);
+      d.push({ year: y, bOut: Math.round(bOut), rOut: Math.round(rOut), mRent: Math.round(currentRent * Math.pow(1 + P.rentGrowth, y - 1)), costs: Math.round(costs) });
     }
     return d;
-  }, [P, hy, be, annualMtg, mp]);
+  }, [P, hy, currentRent, annualMtg, mp]);
 
   const samples = [2500, 3000, 3500, 4000, 4500, 5000, 5500];
   const comp = useMemo(() => samples.map(r => {
@@ -187,92 +267,51 @@ export default function App() {
           width: 14px; height: 14px; border-radius: 50%;
           background: #4a9eff; cursor: pointer; border: none;
         }
+        input[type="number"] {
+          -moz-appearance: textfield;
+        }
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+          -webkit-appearance: none; margin: 0;
+        }
       `}</style>
       <div style={{ maxWidth: 680, margin: "0 auto" }}>
 
-        <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: "#e6edf3" }}>Buy vs Rent 손익분기 계산기</h1>
-          <p style={{ color: "#4b5363", fontSize: 12, marginTop: 6 }}>Ridgewood, NJ · {fmt(P.homePrice)} · 인플레이션 & 매도수수료 반영</p>
+        <div style={{ textAlign: "center", marginBottom: 24 }}>
+          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: "#e6edf3" }}>Buy vs Rent 계산기</h1>
+          <p style={{ color: "#4b5363", fontSize: 12, marginTop: 6 }}>Ridgewood, NJ · 인플레이션 & 매도수수료 반영</p>
         </div>
 
-        {/* ASSUMPTIONS + SLIDERS */}
-        <div style={{ background: "#111318", border: "1px solid #1e2430", borderRadius: 10, padding: "16px 18px", marginBottom: 20 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: showSliders ? 14 : 8 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#4a9eff", textTransform: "uppercase", letterSpacing: 1.2 }}>전제 조건</div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              {!isDefault && (
-                <button onClick={() => setParams(DEFAULTS)} style={{
-                  background: "none", border: "1px solid #333", borderRadius: 5, padding: "3px 8px",
-                  color: "#6b7280", fontSize: 11, cursor: "pointer",
-                }}>초기화</button>
-              )}
-              <button onClick={() => setShowSliders(!showSliders)} style={{
-                background: showSliders ? "#1d4ed8" : "#151920", border: "none", borderRadius: 5,
-                padding: "4px 10px", color: showSliders ? "#fff" : "#6b7280", fontSize: 11,
-                cursor: "pointer", fontWeight: 500,
-              }}>{showSliders ? "접기" : "조절하기"}</button>
-            </div>
-          </div>
-
-          {showSliders ? (
-            <div style={{ display: "grid", gap: 14 }}>
-              {sliderDefs.map(({ key, label, min, max, step, format }) => (
-                <div key={key}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                    <span style={{ fontSize: 12, color: "#6b7280" }}>{label}</span>
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: params[key] !== DEFAULTS[key] ? "#4a9eff" : "#9ca3b0", fontWeight: 600 }}>
-                      {format(params[key])}
-                    </span>
-                  </div>
-                  <input type="range" min={min} max={max} step={step} value={params[key]}
-                    onChange={e => setP(key, parseFloat(e.target.value))} style={sliderTrack} />
-                </div>
-              ))}
-              <div style={{ fontSize: 11, color: "#4b5363", paddingTop: 4, borderTop: "1px solid #1e2430" }}>
-                다운페이먼트: {fmt(P.downPayment)} · 클로징: {fmt(P.closingCost)} · 모기지: {fmt(P.mortgage)} · 초기 투입: {fmt(P.downPayment + P.closingCost)}
+        {/* PRIMARY INPUT: 현재 월세 + 집값 */}
+        <div style={{ background: "#111318", border: "1px solid #1e2430", borderRadius: 12, padding: "20px 18px", marginBottom: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#4a9eff", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>현재 월세</div>
+              <div style={{ display: "flex", alignItems: "center", background: "#0b0e13", borderRadius: 8, border: "1px solid #1e2430", padding: "8px 12px" }}>
+                <span style={{ color: "#6b7280", fontSize: 18, fontWeight: 600, marginRight: 4 }}>$</span>
+                <input type="number" value={currentRent} onChange={e => setCurrentRent(Math.max(0, parseInt(e.target.value) || 0))}
+                  style={{ background: "none", border: "none", color: "#e6edf3", fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 700, width: "100%", outline: "none" }} />
+                <span style={{ color: "#4b5363", fontSize: 11, whiteSpace: "nowrap" }}>/mo</span>
               </div>
             </div>
-          ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2px 24px", fontSize: 12, color: "#6b7280", lineHeight: 1.9 }}>
-              <span>집값: <b style={{ color: "#c9d1d9" }}>{fmt(P.homePrice)}</b></span>
-              <span>모기지: <b style={{ color: "#c9d1d9" }}>{fmt(P.mortgage)} @ {pct(P.mortgageRate)}</b></span>
-              <span>초기 투입: <b style={{ color: "#c9d1d9" }}>{fmt(P.downPayment + P.closingCost)}</b></span>
-              <span>재산세: <b style={{ color: "#c9d1d9" }}>{fmt(P.homePrice * P.propertyTaxRate)}/yr ({pct(P.propertyTaxRate)})</b></span>
-              <span>보험+수선: <b style={{ color: "#c9d1d9" }}>{fmt(P.insuranceY1 + P.maintenanceY1)}/yr</b></span>
-              <span>유지비 합계: <b style={{ color: "#c9d1d9" }}>{fmt(P.annualCostsY1)}/yr</b></span>
-              <span>세제 혜택 (1년차): <b style={{ color: "#c9d1d9" }}>{fmt(calcTaxBenefit(P.mortgage * P.mortgageRate, P.homePrice * P.propertyTaxRate, P.marginalTaxRate, P.standardDeduction, P.saltCap))}/yr</b></span>
-              <span>집값 상승: <b style={{ color: "#c9d1d9" }}>{pct(P.homeAppreciation)}/yr</b></span>
-              <span>투자 수익: <b style={{ color: "#c9d1d9" }}>{pct(P.investReturn)}/yr</b></span>
-              <span>유지비 상승: <b style={{ color: "#e9a23b" }}>{pct(P.costGrowth)}/yr</b></span>
-              <span>렌트 상승: <b style={{ color: "#e9a23b" }}>{pct(P.rentGrowth)}/yr</b></span>
-              <span>매도 수수료: <b style={{ color: "#c9d1d9" }}>{pct(P.sellingCostPct)}</b></span>
-              <span>원금 상환: <b style={{ color: "#4ade80" }}>비용 아님</b></span>
-            </div>
-          )}
-
-          {/* FIXED ASSUMPTIONS */}
-          <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid #1e2430" }}>
-            <div style={{ fontSize: 10, fontWeight: 600, color: "#555d6b", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>고정 가정</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1px 24px", fontSize: 11, color: "#4b5363", lineHeight: 1.9 }}>
-              <span>모기지 기간: <b style={{ color: "#6b7280" }}>30년 고정</b></span>
-              <span>세금 신고: <b style={{ color: "#6b7280" }}>MFJ (부부 합산)</b></span>
-              <span>연소득: <b style={{ color: "#6b7280" }}>$300,000</b></span>
-              <span>한계 세율: <b style={{ color: "#6b7280" }}>{pct(P.marginalTaxRate)} (연방)</b></span>
-              <span>표준 공제: <b style={{ color: "#6b7280" }}>{fmt(P.standardDeduction)}</b></span>
-              <span>SALT cap: <b style={{ color: "#6b7280" }}>{fmt(P.saltCap)}</b></span>
-              <span>재산세: <b style={{ color: "#6b7280" }}>집값 × 세율 (자동 연동)</b></span>
-              <span>NJ 주세: <b style={{ color: "#6b7280" }}>모기지이자 공제 불가</b></span>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#4a9eff", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>매수 가격</div>
+              <div style={{ display: "flex", alignItems: "center", background: "#0b0e13", borderRadius: 8, border: "1px solid #1e2430", padding: "8px 12px" }}>
+                <span style={{ color: "#6b7280", fontSize: 18, fontWeight: 600, marginRight: 4 }}>$</span>
+                <input type="number" value={params.homePrice} onChange={e => setP("homePrice", Math.max(100000, parseInt(e.target.value) || 0))}
+                  style={{ background: "none", border: "none", color: "#e6edf3", fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 700, width: "100%", outline: "none" }} />
+              </div>
             </div>
           </div>
         </div>
 
         {/* HOLDING PERIOD */}
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 8, fontWeight: 500 }}>보유 기간 선택</div>
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 6, fontWeight: 500 }}>거주 기간</div>
           <div style={{ display: "flex", gap: 6 }}>
             {yrs.map(y => (
               <button key={y} onClick={() => setHy(y)} style={{
-                flex: 1, padding: "10px 0", borderRadius: 8, border: "none", cursor: "pointer",
+                flex: 1, padding: "8px 0", borderRadius: 8, border: "none", cursor: "pointer",
                 fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600,
                 background: hy === y ? "#1d4ed8" : "#151920", color: hy === y ? "#fff" : "#6b7280",
               }}>{y}년</button>
@@ -280,31 +319,57 @@ export default function App() {
           </div>
         </div>
 
-        {/* HERO RESULT */}
-        <div style={{ background: "linear-gradient(135deg, #0f1a2e, #0d1424)", borderRadius: 14, border: "1px solid #1d4ed8", padding: "24px 20px", marginBottom: 20, textAlign: "center" }}>
-          <div style={{ fontSize: 11, color: "#4a9eff", fontWeight: 600, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 6 }}>
-            {hy}년 보유 시 · 손익분기 1년차 월 렌트
+        {/* HERO VERDICT */}
+        <div style={{
+          background: buyWins
+            ? "linear-gradient(135deg, #0f2418, #0d1a14)"
+            : "linear-gradient(135deg, #1a1410, #14100d)",
+          borderRadius: 14,
+          border: `1px solid ${buyWins ? "#166534" : "#92400e"}`,
+          padding: "24px 20px", marginBottom: 20, textAlign: "center",
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: buyWins ? "#4ade80" : "#fbbf24", letterSpacing: 0.5, marginBottom: 16 }}>
+            {hy}년 거주 시 · 순자산 기준 손익분기
           </div>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 52, fontWeight: 700, color: "#4ade80", lineHeight: 1, margin: "8px 0" }}>
-            {fmt(Math.round(be))}
+          
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 10, marginTop: 4 }}>
+            <div style={{ background: "#0b0e13", borderRadius: 10, padding: "16px 10px", border: !buyWins ? "1px solid #fbbf24" : "1px solid #1e2430" }}>
+              <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 4 }}>현재 월세</div>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 28, fontWeight: 700, color: !buyWins ? "#fbbf24" : "#9ca3b0" }}>
+                {fmt(currentRent)}<span style={{ fontSize: 14, fontWeight: 500 }}>/mo</span>
+              </div>
+            </div>
+            <div style={{ fontSize: 14, color: "#4b5363", fontWeight: 700 }}>VS</div>
+            <div style={{ background: "#0b0e13", borderRadius: 10, padding: "16px 10px", border: buyWins ? "1px solid #4ade80" : "1px solid #1e2430" }}>
+              <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 4 }}>손익분기 시작 월세*</div>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 28, fontWeight: 700, color: buyWins ? "#4ade80" : "#9ca3b0" }}>
+                {fmt(Math.round(be))}<span style={{ fontSize: 14, fontWeight: 500 }}>/mo</span>
+              </div>
+            </div>
           </div>
-          <div style={{ fontSize: 12, color: "#6b7280", marginTop: 8 }}>
-            이후 연 {pct(P.rentGrowth)}↑ → {hy}년차: {fmt(Math.round(be * Math.pow(1 + P.rentGrowth, hy - 1)))}/mo
+
+          <div style={{
+            fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 700,
+            color: buyWins ? "#4ade80" : "#fbbf24", marginTop: 24,
+          }}>
+            {buyWins 
+              ? `현재 월세가 손익분기보다 ${fmt(Math.round(currentRent - be))} 높아 매수가 유리합니다`
+              : `현재 월세가 손익분기보다 ${fmt(Math.round(be - currentRent))} 낮아 렌트가 유리합니다`}
           </div>
-          <div style={{ fontSize: 13, color: "#8b949e", marginTop: 12, lineHeight: 1.7 }}>
-            1년차에 이보다 <span style={{ color: "#4ade80", fontWeight: 600 }}>싸게</span> 렌트 가능 → 렌트 유리
-            &nbsp;·&nbsp;
-            이보다 <span style={{ color: "#f87171", fontWeight: 600 }}>비싸면</span> → 매수 유리
+          
+          <div style={{ marginTop: 20, fontSize: 11, color: "#6b7280", lineHeight: 1.6, textAlign: "left", padding: "0 8px" }}>
+            * <b style={{ color: "#8b949e" }}>손익분기 시작 월세:</b> 1년차 시작 월세를 뜻하며, 해당 월세에서 렌트가 매년 상승할 때 {hy}년 후 <b>최종 순자산</b>이 매수와 같아지는 지점입니다. 즉 현재의 실지출 월비용이 아니라 순자산 기준 손익분기선입니다.
           </div>
-          <div style={{ marginTop: 16, padding: "10px 14px", background: "#0b0e13", borderRadius: 8, fontSize: 12, lineHeight: 1.6 }}>
-            <span style={{ color: "#e9a23b" }}>📌 인플레이션 효과:</span>{" "}
-            <span style={{ color: "#6b7280" }}>
-              미반영 {fmt(Math.round(beNI))} → 반영 {fmt(Math.round(be))} (차이 {fmt(Math.round(beNI - be))})
+          
+          <div style={{ background: "#0b0e13", borderRadius: 8, padding: "12px", marginTop: 16, fontSize: 11, color: "#8b949e", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>{hy}년 후 순자산</span>
+            <span>
+              매수(after-tax) <b style={{ color: "#c9d1d9" }}>{fmt(Math.round(result.buyerNW))}</b> vs 
+              렌트 <b style={{ color: "#c9d1d9" }}>{fmt(Math.round(result.renterNW))}</b>
             </span>
-            <br />
-            <span style={{ color: "#4b5363" }}>
-              모기지 고정 상환이 인플레이션 헤지 역할 → 매수가 월 {fmt(Math.round(beNI - be))} 만큼 더 유리해짐
-            </span>
+          </div>
+          <div style={{ marginTop: 8, fontSize: 11, color: "#4b5363", textAlign: "left", padding: "0 8px" }}>
+            매도 수수료와 초과 양도차익세 {fmt(Math.round(result.capitalGainsTax))} 반영
           </div>
         </div>
 
@@ -335,7 +400,7 @@ export default function App() {
           return (
             <div style={{ background: "#111318", border: "1px solid #1e2430", borderRadius: 10, padding: "16px 18px", marginBottom: 20 }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: "#4a9eff", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 12 }}>
-                보유 기간별 손익분기 렌트
+                보유 기간별 손익분기 시작 월세
               </div>
               <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", overflow: "visible" }}>
                 {/* grid */}
@@ -399,7 +464,7 @@ export default function App() {
                 </span>
                 <span style={{ marginLeft: "auto", color: "#4b5363" }}>점 클릭 → 보유 기간 선택</span>
               </div>
-              <div style={{ fontSize: 11, color: "#4b5363", marginTop: 6 }}>보유 기간이 길수록 손익분기 렌트 ↓ = 매수가 유리해짐</div>
+              <div style={{ fontSize: 11, color: "#4b5363", marginTop: 6 }}>선이 낮을수록 더 낮은 시작 월세에서도 매수와 렌트의 최종 순자산이 같아집니다.</div>
             </div>
           );
         })()}
@@ -407,7 +472,7 @@ export default function App() {
         {/* CASH FLOW YEAR BY YEAR */}
         <div style={{ background: "#111318", border: "1px solid #1e2430", borderRadius: 10, padding: "16px 18px", marginBottom: 20 }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: "#4a9eff", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 12 }}>
-            연도별 현금 흐름 (손익분기 렌트 기준)
+            연도별 현금 흐름 (1년차 월세 {fmt(currentRent)} 기준)
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "36px 1fr 1fr 80px", gap: 0 }}>
             <div style={hdr}>년</div>
@@ -432,7 +497,7 @@ export default function App() {
         {/* SAMPLE RENT COMPARISON */}
         <div style={{ background: "#111318", border: "1px solid #1e2430", borderRadius: 10, padding: "16px 18px", marginBottom: 20 }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: "#4a9eff", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 12 }}>
-            1년차 월렌트별 · {hy}년 후 순자산 비교
+            1년차 시작 월세별 · {hy}년 후 순자산 비교
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "70px 1fr 1fr 80px", gap: 0 }}>
             <div style={hdr}>월 렌트</div>
@@ -451,16 +516,78 @@ export default function App() {
               );
             })}
           </div>
-          <div style={{ fontSize: 11, color: "#4b5363", marginTop: 10 }}>렌트는 매년 {pct(P.rentGrowth)}↑ 가정 · 매수 순자산 = 집 매도(−{pct(P.sellingCostPct)}) 후 equity</div>
+          <div style={{ fontSize: 11, color: "#4b5363", marginTop: 10 }}>렌트는 매년 {pct(P.rentGrowth)}↑ 가정 · 매수 순자산 = 집 매도(−{pct(P.sellingCostPct)}) 후 초과 양도차익세 반영 equity</div>
+        </div>
+        {/* ASSUMPTIONS (collapsible) */}
+        <div style={{ background: "#111318", border: "1px solid #1e2430", borderRadius: 10, padding: "16px 18px", marginBottom: 20 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: showSliders ? 14 : 0 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#4a9eff", textTransform: "uppercase", letterSpacing: 1.2 }}>전제 조건</div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              {!isDefault && (
+                <button onClick={() => setParams(DEFAULTS)} style={{
+                  background: "none", border: "1px solid #333", borderRadius: 5, padding: "3px 8px",
+                  color: "#6b7280", fontSize: 11, cursor: "pointer",
+                }}>초기화</button>
+              )}
+              <button onClick={() => setShowSliders(!showSliders)} style={{
+                background: showSliders ? "#1d4ed8" : "#151920", border: "none", borderRadius: 5,
+                padding: "4px 10px", color: showSliders ? "#fff" : "#6b7280", fontSize: 11,
+                cursor: "pointer", fontWeight: 500,
+              }}>{showSliders ? "접기" : "조절하기"}</button>
+            </div>
+          </div>
+          {showSliders && (
+            <div style={{ display: "grid", gap: 14 }}>
+              {sliderDefs.map(({ key, label, min, max, step, format }) => (
+                <div key={key}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                    <span style={{ fontSize: 12, color: "#6b7280" }}>{label}</span>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: params[key] !== DEFAULTS[key] ? "#4a9eff" : "#9ca3b0", fontWeight: 600 }}>
+                      {format(params[key])}
+                    </span>
+                  </div>
+                  <input type="range" min={min} max={max} step={step} value={params[key]}
+                    onChange={e => setP(key, parseFloat(e.target.value))} style={sliderTrack} />
+                </div>
+              ))}
+              <div style={{ fontSize: 11, color: "#4b5363", paddingTop: 4, borderTop: "1px solid #1e2430" }}>
+                다운페이먼트: {fmt(P.downPayment)} · 클로징: {fmt(P.closingCost)} · 모기지: {fmt(P.mortgage)} · 초기 투입: {fmt(P.downPayment + P.closingCost)}
+              </div>
+            </div>
+          )}
+          {!showSliders && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2px 24px", fontSize: 12, color: "#6b7280", lineHeight: 1.9, marginTop: 8 }}>
+              <span>모기지: <b style={{ color: "#c9d1d9" }}>{fmt(P.mortgage)} @ {pct(P.mortgageRate)}</b></span>
+              <span>초기 투입: <b style={{ color: "#c9d1d9" }}>{fmt(P.downPayment + P.closingCost)}</b></span>
+              <span>유지비: <b style={{ color: "#c9d1d9" }}>{fmt(P.annualCostsY1)}/yr</b></span>
+              <span>주 소득세: <b style={{ color: "#c9d1d9" }}>{fmt(P.stateIncomeTaxY1)}/yr</b></span>
+              <span>투자 수익: <b style={{ color: "#c9d1d9" }}>{pct(P.investReturn)}/yr</b></span>
+              <span>양도차익세율: <b style={{ color: "#c9d1d9" }}>{pct(P.capitalGainsTaxRate)}</b></span>
+              <span>집값 상승: <b style={{ color: "#c9d1d9" }}>{pct(P.homeAppreciation)}/yr</b></span>
+              <span>매도 수수료: <b style={{ color: "#c9d1d9" }}>{pct(P.sellingCostPct)}</b></span>
+            </div>
+          )}
+          <div style={{ marginTop: 10, paddingTop: 8, borderTop: "1px solid #1e2430" }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: "#555d6b", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>고정 가정</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1px 24px", fontSize: 11, color: "#4b5363", lineHeight: 1.8 }}>
+              <span>모기지: <b style={{ color: "#6b7280" }}>30년 고정</b></span>
+              <span>MFJ $300K · {pct(P.marginalTaxRate)}</span>
+              <span>표준공제: <b style={{ color: "#6b7280" }}>{fmt(P.standardDeduction)}</b></span>
+              <span>SALT cap: <b style={{ color: "#6b7280" }}>{fmt(P.saltCap)}</b></span>
+              <span>이자공제 한도: <b style={{ color: "#6b7280" }}>{fmt(P.mortgageInterestLimit)}</b></span>
+              <span>양도차익 비과세: <b style={{ color: "#6b7280" }}>{fmt(P.homeSaleGainExclusion)}</b></span>
+            </div>
+          </div>
         </div>
 
         {/* METHOD */}
         <div style={{ background: "#111318", border: "1px solid #1e2430", borderRadius: 10, padding: "16px 18px", fontSize: 12, color: "#4b5363", lineHeight: 1.8 }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: "#4a9eff", textTransform: "uppercase", letterSpacing: 1.2, marginBottom: 8 }}>계산 방법</div>
-          <p style={{ margin: "0 0 6px 0" }}>매년 시뮬레이션: 매수자 지출(모기지 고정 + 유지비↑{pct(P.costGrowth)} − 세제혜택)과 렌트 지출(렌트↑{pct(P.rentGrowth)})의 차이를 {pct(P.investReturn)}로 투자 누적.</p>
-          <p style={{ margin: "0 0 6px 0" }}><b style={{ color: "#9ca3b0" }}>매수 순자산</b> = 집값×(1+{pct(P.homeAppreciation)})ᴺ×{(1 - P.sellingCostPct).toFixed(2)} − 잔여모기지</p>
+          <p style={{ margin: "0 0 6px 0" }}>매년 시뮬레이션: 매수자 지출(모기지 고정 + 유지비↑{pct(P.costGrowth)} − 세제혜택)과 렌트 지출(1년차 시작 월세에서 매년 {pct(P.rentGrowth)}↑)의 차이를 {pct(P.investReturn)}로 투자 누적.</p>
+          <p style={{ margin: "0 0 6px 0" }}><b style={{ color: "#9ca3b0" }}>세제혜택</b> = 모기지 이자(원금 {fmt(P.mortgageInterestLimit)} 한도 반영) + 재산세·주 소득세(SALT 최대 {fmt(P.saltCap)})가 표준공제 {fmt(P.standardDeduction)}를 초과하는 부분에 대한 연방 절세</p>
+          <p style={{ margin: "0 0 6px 0" }}><b style={{ color: "#9ca3b0" }}>매수 순자산</b> = 집값×(1+{pct(P.homeAppreciation)})ᴺ에서 매도 수수료와 초과 양도차익세(비과세 {fmt(P.homeSaleGainExclusion)} 초과분 × {pct(P.capitalGainsTaxRate)})를 뺀 후 잔여모기지 차감</p>
           <p style={{ margin: "0 0 6px 0" }}><b style={{ color: "#9ca3b0" }}>렌트 순자산</b> = {fmt(P.downPayment + P.closingCost)}×(1+{pct(P.investReturn)})ᴺ + 매년 절약분 투자 누적</p>
-          <p style={{ margin: 0 }}>양쪽 순자산이 같아지는 1년차 렌트가 손익분기점입니다.</p>
+          <p style={{ margin: 0 }}>양쪽 순자산이 같아지는 1년차 시작 월세가 손익분기점입니다.</p>
         </div>
       </div>
     </div>
