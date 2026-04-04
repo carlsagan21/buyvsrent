@@ -514,7 +514,7 @@ export default function App() {
           <div style={{ display: "grid", gridTemplateColumns: "30px 1.1fr 0.9fr 1.1fr 74px", gap: 0 }}>
             <div style={hdr}>년</div>
             <div style={{ ...hdr, textAlign: "right" }}>매수 연지출</div>
-            <div style={{ ...hdr, textAlign: "right", color: "#6b7280" }}>(그중 원금)</div>
+            <div style={{ ...hdr, textAlign: "right", color: "#6b7280" }}>(원금 상환)</div>
             <div style={{ ...hdr, textAlign: "right" }}>렌트 연지출</div>
             <div style={{ ...hdr, textAlign: "right" }}>월 렌트</div>
             {details.filter((_, i) => hy <= 10 || i % 2 === 0 || i === details.length - 1).map(d => (
